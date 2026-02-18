@@ -21,3 +21,8 @@ designs/**/design-info/physical-layout.design~
 # part cache does not need to be stored in Git
 parts-db/
 .venv/
+
+# Python packaging artifacts
+dist/
+build/
+*.egg-info/
