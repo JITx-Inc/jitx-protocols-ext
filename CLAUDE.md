@@ -9,113 +9,63 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is `jitxlib-standard`, the JITX Standard Library for Python. It provides reusable building blocks for electronic circuit design including:
+This is `jitx-protocols-ext`, a JITX protocol extension library. It provides:
 
-- **Landpattern generators** - Framework for generating component footprints (BGA, QFN, SOIC, SOT, SOP, SON, etc.)
-- **Symbol generators** - Schematic symbols for resistors, capacitors, inductors, logic gates, op-amps, transformers
-- **Protocol bundles** - Signal definitions for USB, Ethernet (MII/RGMII/GMII), DisplayPort, SATA, PCIe, SFP, DDR4/LPDDR4/LPDDR5/GDDR7
-- **Via structures** - Single-ended and differential via structures with ground cages and antipads
-- **Circuit utilities** - CircuitPool for aggregating provides across multiple circuit instances
+- **Protocol bundles** - Signal definitions for JESD204B/C, PCIe, SATA, SFP/QSFP, DDR4, LPDDR4, LPDDR5, GDDR7
+- **Signal integrity constraints** - Timing skew, insertion loss, and impedance constraints
+- **Example designs** - Complete working examples with component definitions and SI-constrained topologies
 
 ## Development Commands
 
 ```bash
+# Install in development mode
+pip install -e ".[dev]"
+
+# Run tests
+hatch test
+
 # Run tests with coverage
-hatch test --cover
+hatch test cov
 
-# Run tests for specific Python version
-hatch test --python 3.12
-hatch test --python 3.13
+# Lint and format
+hatch run lint:check
+hatch run lint:fmt
 
-# Run a single test file
-hatch test tests/test_landpattern_gen.py
-
-# Run a single test method
-hatch test tests/test_landpattern_gen.py::LandpatternGeneratorTestCase::test_initialize_directly
-
-# Format and lint (ruff)
-hatch fmt
-
-# Check formatting without changes
-hatch fmt --check
-
-# Type checking (pyright)
+# Type checking
 hatch run types:check
-hatch run types:stats
 
-# Build
+# Build all JITX designs
+python -m jitx build-all
+
+# Build distributable package
 hatch build
 ```
 
 ## Architecture
 
-### Landpattern Generator Framework (`src/jitxlib/landpatterns/`)
-
-The landpattern system uses a mixin-based architecture with lazy evaluation:
-
-1. **`LandpatternGenerator`** - Base class that extends `jitx.Landpattern` with automatic rebuild on attribute access
-2. **`LandpatternProvider`** - Mixin providing `_build()` and `_build_decorate()` hooks; subclasses must call `super()._build()` to maintain the build chain
-3. **Generator Mixins** - Add functionality via method chaining:
-   - `DualColumn`, `QuadColumn` - Pad layouts
-   - `SilkscreenOutline`, `Pad1Marker`, `ReferenceDesignatorMixin` - Decorations
-   - `ThermalPadGeneratorMixin` - Thermal pad generation
-   - `ExcessCourtyard` - Courtyard calculations
-
-Example composition pattern:
-```python
-class MyLandpattern(
-    A1,                        # Numbering starts at A1
-    AlphaDictNumbering,        # Alpha row, numeric column naming
-    Pad1Marker,                # Pin 1 indicator
-    ExcessCourtyard,           # Courtyard sizing
-    SilkscreenOutline,         # Outline generation
-    DualColumn,                # 2-column pad layout (must be last)
-):
-    def __base_init__(self):
-        super().__base_init__()
-        self.pad_config(SMDPadConfig())
-        self.silkscreen_outline(SoldermaskBased())
-```
-
-### Protocol Bundles (`src/jitxlib/protocols/`)
+### Protocol Bundles (`jitx_protocols_ext/protocols/`)
 
 Protocol bundles define signal groupings for standard interfaces:
 
-- **USB** (`usb.py`): `USB2`, `USBSuperSpeed`, `USB_C` with transport vs connector distinction
-- **Ethernet** (`ethernet/`): MII variants (MII, RMII, RGMII, GMII) and MDI (100BASE-TX, 1000BASE-T, 10GBASE-KR)
+- **JESD204** (`jesd204.py`): JESD204B/C with unidirectional DiffPair data lanes, SYNC~, SYSREF, DEVCLK
 - **Memory** (`memory/`): DDR4, LPDDR4, LPDDR5, GDDR7 interfaces
-- **High-speed serial**: PCIe, SATA, SFP, DisplayPort
+- **High-speed serial**: PCIe, SATA, SFP/QSFP
 
 Bundles inherit from `Port` and compose `DiffPair`, `LanePair`, `Power` from `jitx.common`.
 
-### Via Structures (`src/jitxlib/via_structures/`)
+### Examples (`jitx_protocols_ext/examples/protocols/`)
 
-Via structures are `Circuit` subclasses for SI-aware via transitions:
+Complete working examples with dummy components, Provide() pin assignment, and SI-constrained topologies for each protocol.
 
-- **`SingleViaStructure`** - Single-ended signals with `sig_in`, `sig_out`, `COMMON` ports
-- **`DifferentialViaStructure`** - Differential pairs with configurable pitch
-- **`ViaGroundCage`** / **`PolarViaGroundCage`** - Ground via patterns
-- **`AntiPad`** / **`SimpleAntiPad`** - Keepout regions on specified layers
+### Common Infrastructure (`jitx_protocols_ext/common/`)
 
-### CircuitPool (`src/jitxlib/circuits/pool.py`)
-
-Aggregates `Provide` ports from multiple circuit instances into a single pool, enabling unified pin assignment across partitioned circuits.
-
-## Testing Patterns
-
-Tests use `SampleDesign` with `@inline` circuits:
-```python
-class MyTestDesign(SampleDesign):
-    @inline
-    class circuit(Circuit):
-        component = MyComponent()
-```
-
-Use `SubstrateContext(SampleSubstrate())` when testing landpatterns directly.
+Shared board/stackup definitions and example components (blocking capacitors, pull-up resistors) with pin models for SI propagation.
 
 ## Key Dependencies
 
-- `jitx>=4.0.0,<4.1` - Core JITX Python API
+- `jitx>=4.0.0,<5` - Core JITX Python API
+- `jitxlib-standard>=4.0.0,<5` - Standard library (landpatterns, symbols)
+- `jitxlib-parts>=1.0.0,<2` - Component part definitions
 - Python 3.12+ required
 
 ---

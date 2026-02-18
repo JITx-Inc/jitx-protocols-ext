@@ -1,6 +1,6 @@
-# JITX Protocol Examples and Validation Library
+# jitx-protocols-ext
 
-This repository contains JITX Python implementations of high-speed protocol bundles, signal integrity constraints, and component validation utilities. It demonstrates how to define and constrain memory and serial interfaces in hardware designs.
+JITX protocol bundles, signal integrity constraints, and example designs for high-speed interfaces.
 
 ## Table of Contents
 
@@ -12,10 +12,6 @@ This repository contains JITX Python implementations of high-speed protocol bund
 - [Protocol Examples](#protocol-examples)
   - [Memory Examples](#memory-examples)
   - [Serial Examples](#serial-examples)
-- [Resistor Validation](#resistor-validation)
-  - [E-Series Validation](#e-series-validation)
-  - [Power Dissipation Check](#power-dissipation-check)
-  - [Combined Resistor Rules](#combined-resistor-rules)
 - [Common Infrastructure](#common-infrastructure)
 - [Development](#development)
 
@@ -25,21 +21,33 @@ This repository contains JITX Python implementations of high-speed protocol bund
 
 This library provides:
 
-1. **Protocol Bundles**: Port definitions for memory interfaces (DDR4, LPDDR4, LPDDR5, GDDR7) and high-speed serial interfaces (PCIe, SATA, SFP/QSFP)
+1. **Protocol Bundles**: Port definitions for memory interfaces (DDR4, LPDDR4, LPDDR5, GDDR7) and high-speed serial interfaces (JESD204, PCIe, SATA, SFP/QSFP)
 
 2. **Signal Integrity Constraints**: Timing skew, insertion loss, and impedance constraints that can be applied to protocol connections
 
 3. **Example Designs**: Complete working examples showing controller-to-memory and device-to-device connections with SI constraints
 
-4. **Resistor Validation**: Utilities to validate resistor values against E-series standards and check power dissipation limits
+## Installation
+
+```bash
+# Install the package
+pip install .
+
+# Install with development dependencies
+pip install -e ".[dev]"
+```
 
 ## Quick Start
 
 ```bash
 # Build all designs
-./.venv/bin/python -m jitx build-all
+python -m jitx build-all
 
-# Expected output: 8 designs, all status: ok
+# Run tests
+hatch test
+
+# Format and lint
+hatch fmt
 ```
 
 ---
@@ -168,6 +176,38 @@ GDDR7
 
 ### High-Speed Serial Protocols
 
+#### JESD204 (`protocols/jesd204.py`)
+
+JESD204B/C interface for high-speed data converters (ADC/DAC to FPGA/ASIC).
+
+**Bundle Structure:**
+```
+JESD204
+├── lane[1-32] (DiffPair)    - Unidirectional CML data lanes
+├── SYNC (DiffPair, optional) - Sync signal (LVDS, receiver → transmitter)
+├── SYSREF (DiffPair, optional) - System reference (Subclass 1)
+└── DEVCLK (DiffPair, optional) - Device clock
+```
+
+**Key Differences from PCIe/SATA:**
+- Data lanes are **unidirectional** (each is a single `DiffPair`, not a `LanePair`)
+- **DC-coupled** CML signaling (no AC coupling capacitors needed)
+- SYNC~ flows in the opposite direction from data
+
+**Versions:**
+| Version | Max Lane Rate | Encoding | SYNC~ Required |
+|---------|---------------|----------|----------------|
+| JESD204B | 12.5 Gbps | 8B/10B | Yes |
+| JESD204C | 32.5 Gbps | 64B/66B | No (embedded) |
+
+**Constraint Parameters (`JESD204Standard`):**
+| Parameter | JESD204B | JESD204C | Description |
+|-----------|----------|----------|-------------|
+| `skew` | ±1.0ps | ±0.5ps | Intra-pair skew |
+| `lane_skew` | ±100ps | ±50ps | Inter-lane skew |
+| `loss` | 12.0dB | 15.0dB | Maximum insertion loss |
+| `impedance` | 100Ω ±20% | 100Ω ±15% | Differential impedance |
+
 #### PCIe (`protocols/pcie.py`)
 
 PCI Express supporting Gen1 through Gen6, x1 through x16 widths.
@@ -238,7 +278,7 @@ SFP_Lane (base for all variants)
 
 ## Protocol Examples
 
-All examples are in `test_protocols/examples/protocols/` and demonstrate:
+All examples are in `jitx_protocols_ext/examples/protocols/` and demonstrate:
 - Component definition with landpatterns and pad mappings
 - Memory/controller circuits with direct ports or Provide() patterns
 - Topology connections using `>>` for SI constraint propagation
@@ -299,6 +339,20 @@ GPU IC to GDDR7 memory connection with 4-channel interface.
 
 ### Serial Examples
 
+#### JESD204 Example (`examples/protocols/jesd204/jesd204_example.py`)
+
+4-lane JESD204B ADC-to-FPGA connection with SI constraints.
+
+**Components:**
+- `JESD204ADCComponent`: Dummy quad-channel ADC with 4 serial output lanes
+- `JESD204FPGAComponent`: Dummy FPGA with 4 serial input lanes
+
+**Features:**
+- Unidirectional data lanes (ADC TX → FPGA RX)
+- DC-coupled CML (no blocking capacitors)
+- SYNC~ routed from FPGA back to ADC
+- SYSREF and DEVCLK clock routing
+
 #### PCIe Example (`examples/protocols/pcie/pcie_example.py`)
 
 PCIe Gen3 x2 with AC coupling and null-modem topology.
@@ -323,111 +377,6 @@ Single-lane SFP and 4-lane QSFP connections.
 **Features:**
 - TX→RX crossover topology (optical-style)
 - AC coupling on TX paths
-
----
-
-## Resistor Validation
-
-### E-Series Validation (`eseries_check.py`)
-
-Validates that resistance values conform to standard E-series (E96 by default).
-
-```python
-from eseries_check import check_eseries_value, ESeriesResult
-
-# Check if 10kΩ is E96 standard
-result = check_eseries_value(10000)  # ok=True, severity="ok"
-
-# Check non-standard value
-result = check_eseries_value(47500)  # ok=False, severity="error"
-
-# Allow non-standard as warning
-result = check_eseries_value(47500, allow_warning=True)  # severity="warning"
-```
-
-**Return Object (`ESeriesResult`):**
-| Field | Type | Description |
-|-------|------|-------------|
-| `ok` | bool | True if value matches E-series |
-| `severity` | str | "ok", "warning", or "error" |
-| `value_ohms` | float | Input value |
-| `series` | str | E-series checked (e.g., "E96") |
-| `nearest_standard_ohms` | float | Nearest E-series value |
-| `rel_error` | float | Relative error from nearest |
-| `message` | str | Human-readable result |
-
-### Power Dissipation Check (`resistor_power_check.py`)
-
-Validates that resistor power dissipation (P = I²R) is within package limits.
-
-```python
-from resistor_power_check import check_resistor_power, ResistorPowerResult
-
-# Check 1kΩ resistor with 10mA in 0603 package
-result = check_resistor_power(
-    size="0603",
-    resistance_ohms=1000,
-    current_amps=0.01,
-    derating_factor=0.8,  # 80% derating
-    design_margin=2.0,    # 2x safety margin
-)
-```
-
-**Package Power Ratings:**
-
-| Imperial | Metric | Power (W) |
-|----------|--------|-----------|
-| 01005 | 0402 | 0.031 |
-| 0201 | 0603 | 0.050 |
-| 0402 | 1005 | 0.062 |
-| 0603 | 1608 | 0.100 |
-| 0805 | 2012 | 0.125 |
-| 1206 | 3216 | 0.250 |
-| 1210 | 3225 | 0.500 |
-| 1812 | 4532 | 0.750 |
-| 2010 | 5025 | 0.750 |
-| 2512 | 6332 | 1.000 |
-
-**Size Normalization:**
-- Ambiguous sizes (0402, 0603) default to **imperial**
-- Use explicit prefix for clarity: `I0402` (imperial) or `M1005` (metric)
-
-### Combined Resistor Rules (`resistor_rules.py`)
-
-Combines E-series validation with optional power check.
-
-```python
-from resistor_rules import check_resistor, ResistorRuleResult
-
-# E-series only (power check skipped)
-result = check_resistor(size="0603", resistance_ohms=10000)
-
-# E-series + power check
-result = check_resistor(
-    size="0603",
-    resistance_ohms=10000,
-    current_amps=0.005,
-    derating_factor=0.8,
-    design_margin=2.0,
-)
-
-# Allow non-standard as warning
-result = check_resistor(
-    size="0603",
-    resistance_ohms=9950,  # Not E96
-    allow_nonstandard_warning=True,
-)
-```
-
-**Return Object (`ResistorRuleResult`):**
-| Field | Type | Description |
-|-------|------|-------------|
-| `ok` | bool | All enforced rules pass |
-| `severity` | str | "ok", "warning", or "error" |
-| `summary` | str | Single-line status |
-| `issues` | list[str] | All messages (info/warning/error) |
-| `eseries` | ESeriesResult | E-series validation result |
-| `power` | ResistorPowerResult | Power check result (or None if skipped) |
 
 ---
 
@@ -484,49 +433,58 @@ Components with pin models for SI topology propagation.
 
 ## Development
 
-### Building
+### Commands
 
 ```bash
-# Activate virtual environment
-source .venv/bin/activate
+# Install in development mode
+pip install -e ".[dev]"
 
-# Build all designs
+# Run tests
+hatch test
+
+# Run tests with coverage
+hatch test cov
+
+# Lint and format
+hatch run lint:check
+hatch run lint:fmt
+
+# Type checking
+hatch run types:check
+
+# Build all JITX designs
 python -m jitx build-all
+
+# Build distributable wheel/sdist
+hatch build
 ```
 
 ### Project Structure
 
 ```
-test_protocols/
+jitx_protocols_ext/
 ├── protocols/                 # Protocol bundle definitions
 │   ├── memory/
 │   │   ├── ddr4.py           # DDR4 bundle + constraints
 │   │   ├── lpddr4.py         # LPDDR4 bundle + constraints
 │   │   ├── lpddr5.py         # LPDDR5 bundle + constraints
 │   │   └── gddr7.py          # GDDR7 bundle + constraints
+│   ├── jesd204.py            # JESD204B/C bundle + constraints
 │   ├── pcie.py               # PCIe bundle + constraints
 │   ├── sata.py               # SATA bundle + constraints
 │   └── sfp.py                # SFP/QSFP bundle + constraints
 ├── examples/protocols/        # Example designs
+│   ├── jesd204/
 │   ├── memory/
-│   │   ├── ddr4_components.py
-│   │   ├── ddr4_example.py
-│   │   ├── lpddr4_components.py
-│   │   ├── lpddr4_example.py
-│   │   ├── lpddr5_components.py
-│   │   ├── lpddr5_example.py
-│   │   ├── MT62F4G32D8DV_026_AIT_B.py
-│   │   ├── gddr7_components.py
-│   │   └── gddr7_example.py
 │   ├── pcie/
 │   ├── sata/
 │   └── sfp/
 ├── common/                    # Shared infrastructure
 │   ├── example_board.py      # Board, stackup, vias
 │   └── example_components.py # Blocking caps, pull-ups
-├── eseries_check.py          # E-series validation
-├── resistor_power_check.py   # Power dissipation check
-└── resistor_rules.py         # Combined resistor validation
+tests/                         # Test suite
+├── test_imports.py
+└── test_jesd204.py
 ```
 
 ### Key Patterns
