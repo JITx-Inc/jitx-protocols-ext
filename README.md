@@ -58,37 +58,76 @@ hatch fmt
 
 #### DDR4 (`protocols/memory/ddr4.py`)
 
-DDR4 SDRAM interface supporting x16 width with single or dual rank configurations.
+DDR4 SDRAM interface supporting 9 width variants (x4 through x72) with single, dual, or quad rank configurations.
 
 **Bundle Structure:**
 ```
-DDR4
-├── data: DDR4Data
-│   ├── DQ[16]         - 16-bit data bus
-│   ├── DQS[2]         - Data strobes (DiffPair per byte lane)
-│   └── DM_n[2]        - Data masks
-└── acc: DDR4ACC
+DDR4(width, rank, ck_count=2, bg_count=2, ba_count=2)
+├── data: DDR4DataChannel
+│   ├── DQ[width]      - Data bus (4 to 72 bits)
+│   ├── DQS[lanes]     - Data strobes (DiffPair per 8-bit byte lane)
+│   └── DM_n[lanes]    - Data masks (1 per byte lane)
+└── acc: DDR4AccChannel
+    ├── CK[ck_count]   - Clock (DiffPair, default 2)
     ├── A[17]          - Address bus
-    ├── BA[2]          - Bank address
-    ├── BG[2]          - Bank group
-    ├── CK[2]          - Clock (DiffPair per chip)
-    ├── CKE[1-2]       - Clock enable
-    ├── CS_n[1-2]      - Chip select
-    ├── ODT[1-2]       - On-die termination
+    ├── BA[ba_count]   - Bank address (default 2)
+    ├── BG[bg_count]   - Bank group (default 2)
+    ├── CKE[rank]      - Clock enable (1, 2, or 4)
+    ├── CS_n[rank]     - Chip select (1, 2, or 4)
+    ├── ODT[rank]      - On-die termination (1, 2, or 4)
     ├── ACT_n          - Activate
     ├── RESET_n        - Reset
     ├── PAR            - Parity
     └── ALERT_n        - Alert
 ```
 
-**Constraint Parameters (`DDR4ConstraintParams`):**
+**Width Variants:**
+| Width | DQ Bits | Byte Lanes (DQS) | Notes |
+|-------|---------|-------------------|-------|
+| x4 | 4 | 1 | SingleRank only |
+| x8 | 8 | 1 | |
+| x16 | 16 | 2 | Not QuadRank |
+| x24 | 24 | 3 | |
+| x32 | 32 | 4 | |
+| x36 | 36 | 5 | With ECC nibble |
+| x40 | 40 | 5 | |
+| x64 | 64 | 8 | |
+| x72 | 72 | 9 | With ECC |
+
+**Impedances (`DDR4Impedances`):**
+| Signal | Impedance | Description |
+|--------|-----------|-------------|
+| CK | 90Ω ±5% | Clock differential |
+| DQS | 100Ω ±5% | Data strobe differential |
+| DQ | 50Ω ±5% | Data single-ended |
+| ACC | 45Ω ±5% | CMD/ADDR/CTRL single-ended |
+
+**Data Constraint Parameters (`DDR4DataConstraintParams`):**
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `skew_ck` | ±2.5ps | CK intra-pair skew |
-| `skew_dqs` | ±2.5ps | DQS intra-pair skew |
-| `skew_ck_dqs` | -300ps to +500ps | CK to DQS timing |
-| `skew_dqs_dq` | ±10ps | DQS to DQ/DM skew |
+| `skew_dqs` | ±1.0ps | DQS intra-pair skew |
+| `skew_dq_dqs` | ±3.5ps | DQ to DQS inter-signal skew |
+| `skew_dm_dqs` | ±3.5ps | DM_n to DQS timing skew |
 | `loss` | 5.0dB | Maximum insertion loss |
+
+**ACC Constraint Parameters (`DDR4AccConstraintParams`):**
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `skew_ck` | ±1.0ps | CK intra-pair skew |
+| `skew_cmd_addr_ctrl_ck` | ±20ps | CMD/ADDR/CTRL to CK skew |
+| `skew_cmd_addr_ctrl` | ±10ps | CMD/ADDR/CTRL intra-group skew |
+| `loss` | 5.0dB | Maximum insertion loss |
+
+**Cross-Channel Parameters (`DDR4DataAccConstraintParams`):**
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `skew_ck_dqs` | -85ps to +935ps | CK.P to DQS.P timing |
+
+**Convenience Function:**
+```python
+connect_ddr4(src, dst, width=DDR4Width.x16, rank=DDR4Rank.SingleRank,
+             diff_ck_rs=None, diff_dqs_rs=None, se_dq_rs=None, se_rs=None)
+```
 
 #### LPDDR4 (`protocols/memory/lpddr4.py`)
 
@@ -96,7 +135,7 @@ Low-power DDR4 for mobile applications. Supports x16, x32, and x64 widths with 1
 
 **Bundle Structure:**
 ```
-LPDDR4
+LPDDR4(width, rank)
 └── ch[1-4]: LPDDR4_X16      - x16 channels
     ├── d[2]: LPDDR4Lane     - Byte lanes
     │   ├── dq[8]            - Data bits
@@ -108,6 +147,12 @@ LPDDR4
     └── ca[6]                - Command/address
 ```
 
+**Impedances (`LPDDR4Impedances`):**
+| Signal | Impedance | Description |
+|--------|-----------|-------------|
+| CK/DQS | 85Ω ±5% | Differential |
+| DQ/CA/CKE/CS | 40Ω ±10% | Single-ended |
+
 **Constraint Parameters (`LPDDR4ConstraintParams`):**
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -118,7 +163,13 @@ LPDDR4
 | `skew_ck_dqs` | -500ps to +2500ps | CK to DQS skew |
 | `skew_dqs` | ±2.0ps | DQS intra-pair skew |
 | `skew_dqs_dq` | ±5.0ps | DQS to DQ/DMI skew |
+| `skew_dq_dq` | ±5.0ps | DQ/DMI to DQ/DMI skew |
 | `loss` | 5.0dB | Maximum insertion loss |
+
+**Convenience Function:**
+```python
+connect_lpddr4(src, dst, width, rank, diff_structure=None, se_structure=None)
+```
 
 #### LPDDR5 (`protocols/memory/lpddr5.py`)
 
@@ -128,10 +179,11 @@ LPDDR5/LPDDR5X for high-bandwidth mobile applications. Supports x32 and x64 widt
 - Separate Write Clock (WCK) and Read Data Strobe (RDQS)
 - 7-bit Command/Address bus
 - Tighter timing constraints
+- 4 separate routing structures (CK, WCK/RDQS, DQ, CA)
 
 **Bundle Structure:**
 ```
-LPDDR5
+LPDDR5(width, rank)
 ├── d[channels][2]: LPDDR5DataLane
 │   ├── dq[8]              - Data bits
 │   ├── wck (DiffPair)     - Write clock
@@ -141,6 +193,21 @@ LPDDR5
 ├── ck[channels] (DiffPair) - Clocks
 ├── ca[channels][7]        - Command/address
 └── reset_n                - Shared reset
+```
+
+**Impedances (`LPDDR5Impedances`):**
+| Signal | Impedance | Description |
+|--------|-----------|-------------|
+| CK | 100Ω ±5% | Clock differential |
+| WCK/RDQS | 100Ω ±5% | Write clock / read strobe differential |
+| DQ/DMI | 50Ω ±5% | Data single-ended |
+| CA/CS | 50Ω ±5% | Command/address single-ended |
+
+**Convenience Function:**
+```python
+connect_lpddr5(src, dst, width, rank=LPDDR5Rank.SingleRank,
+               diff_ck_structure=None, diff_wck_rdqs_structure=None,
+               se_dq_structure=None, se_ca_structure=None)
 ```
 
 #### GDDR7 (`protocols/memory/gddr7.py`)
@@ -163,14 +230,31 @@ GDDR7
     └── ZQ_CD              - Impedance cal (C/D)
 ```
 
+**Impedances (`GDDR7Impedances`):**
+| Signal | Impedance | Description |
+|--------|-----------|-------------|
+| RCK/WCK | 100Ω ±10% | Differential |
+| DQ/DQE/CA/ERR | 50Ω ±10% | Single-ended |
+
 **Constraint Parameters (`GDDR7ConstraintParams`):**
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `skew_rck` | ±10fs | RCK intra-pair skew |
 | `skew_wck` | ±10fs | WCK intra-pair skew |
 | `skew_rck_wck` | ±20ps | RCK to WCK skew |
+| `skew_wck_ca` | ±20ps | WCK to CA skew |
+| `skew_rck_dq` | ±20ps | RCK to DQ/DQE skew |
+| `skew_wck_dq` | ±20ps | WCK to DQ/DQE skew |
 | `skew_dq_dqe` | ±5ps | DQ to DQE skew |
+| `skew_ca_ca` | ±5ps | CA to CA skew |
+| `skew_reset_ca` | ±100ps | Reset to CA skew |
+| `skew_err_wck` | ±100ps | ERR to WCK skew |
 | `loss` | 5.0dB | Maximum insertion loss |
+
+**Convenience Function:**
+```python
+connect_gddr7(src, dst, diff_structure=None, se_structure=None)
+```
 
 ---
 
@@ -210,22 +294,30 @@ JESD204
 
 #### PCIe (`protocols/pcie.py`)
 
-PCI Express supporting Gen1 through Gen6, x1 through x16 widths.
+PCI Express supporting Gen1 through Gen7, x1 through x32 widths.
 
 **Bundle Structure:**
 ```
-PCIe
+PCIe(width, on_board=False, prsnt=False)
 ├── data: PCIeData
-│   └── lane[width]: PCIeLane
-│       ├── TX (DiffPair)  - Transmit pair
-│       └── RX (DiffPair)  - Receive pair
-└── ctrl: PCIeControl (optional)
-    ├── REFCLK (DiffPair)  - Reference clock
-    ├── PERST_n            - Reset
-    ├── CLKREQ_n           - Clock request
-    ├── WAKE_n             - Wake
-    └── PRSNT              - Presence detect
+│   ├── lane[width]: LanePair
+│   │   ├── TX (DiffPair)  - Transmit pair
+│   │   └── RX (DiffPair)  - Receive pair
+│   └── refclk (DiffPair)  - 100MHz reference clock (None for on-board)
+└── control: PCIeControl (None for on-board)
+    ├── PEWAKE             - Power event wake
+    ├── PERST              - PCIe reset
+    ├── CLKREQ             - Clock request
+    └── PRSNT (optional)   - Presence detect
 ```
+
+**Versions (`PCIeVersion`):**
+| Version | Speed | Skew | Loss | Impedance |
+|---------|-------|------|------|-----------|
+| V1-V2 | 2.5-5.0 GT/s | ±1.0ps | 12.0dB | 100Ω ±5% |
+| V3 | 8.0 GT/s | ±1.0ps | 10.3dB | 85Ω ±5% |
+| V4 | 16.0 GT/s | ±0.85ps | 13.5dB | 85Ω ±5% |
+| V5-V7 | 32-128 GT/s | ±0.85ps | 16.0dB | 85Ω ±5% |
 
 **Usage Modes:**
 - `xover=False` (default): Straight-through (TX→TX, RX→RX) for card-edge connectors
@@ -239,20 +331,31 @@ Creates crossover topology connections for null-modem (IC-to-IC) configurations.
 
 #### SATA (`protocols/sata.py`)
 
-Serial ATA interface for storage devices.
+Serial ATA interface for storage devices. Supports SATA 1.0 through 3.4.
 
 **Bundle Structure:**
 ```
 SATA
-└── lane: SATALane
+└── lane: LanePair
     ├── TX (DiffPair)      - Transmit pair
     └── RX (DiffPair)      - Receive pair
 ```
 
+**Generations (`SATA.Generation`):**
+| Generation | Speed | Skew | Loss | Impedance |
+|------------|-------|------|------|-----------|
+| SATA1p0 | 1.5 Gbps | ±4.0ps | 15.0dB | 90Ω ±15% |
+| SATA2p0 | 3.2 Gbps | ±2.0ps | 15.0dB | 90Ω ±15% |
+| SATA3p0-3p4 | 6.0 Gbps | ±1.0ps | 15.0dB | 90Ω ±15% |
+
 **Constraint Notes:**
 - Always uses crossover topology (TX→RX)
-- 100Ω differential impedance
-- Insertion loss ≤5.0dB
+- 90Ω ±15% differential impedance
+
+**Convenience Function:**
+```python
+connect_sata(src, dst, gen=SATA.Generation.SATA3p0, structure=None)
+```
 
 #### SFP/QSFP (`protocols/sfp.py`)
 
@@ -268,10 +371,23 @@ Small Form-factor Pluggable interfaces for optical/copper networking.
 
 **Bundle Structure:**
 ```
-SFP_Lane (base for all variants)
-└── lanes[n]: SFPLink
+SFP_Lane(lane_count)
+└── lanes[n]: LanePair
     ├── TX (DiffPair)      - Transmit pair
     └── RX (DiffPair)      - Receive pair
+```
+
+**Constraint Notes:**
+- 100Ω ±10% differential impedance
+- ±1.0ps intra-pair skew, ±100ps inter-lane skew
+- Maximum insertion loss 5.0dB
+
+**Convenience Functions:**
+```python
+connect_sfp(src, dst, link=SFPLink.SFP, structure=None)
+connect_sfp_dd(src, dst, link=SFPLink.SFP_DD, structure=None)
+connect_qsfp(src, dst, link=SFPLink.QSFP, structure=None)
+connect_qsfp_dd(src, dst, link=SFPLink.QSFP_DD, structure=None)
 ```
 
 ---

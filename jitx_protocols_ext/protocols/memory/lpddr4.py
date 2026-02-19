@@ -98,6 +98,18 @@ class LPDDR4Rank(Enum):
     "Triple rank"
 
 
+def rank_to_int(rank: LPDDR4Rank) -> int:
+    """Convert LPDDR4 rank enum to integer count of CS/CKE signals.
+
+    Args:
+        rank: LPDDR4 rank enum
+
+    Returns:
+        Number of CS and CKE signals per channel
+    """
+    return rank.value
+
+
 class LPDDR4Lane(Port):
     """LPDDR4 Byte Lane Bundle
 
@@ -179,6 +191,22 @@ class LPDDR4(Port):
 
 
 @dataclass(frozen=True)
+class LPDDR4Impedances:
+    """LPDDR4 Impedance Specifications
+
+    Attributes:
+        diff_impedance: CK/DQS differential impedance (default: 85Ω ±5%)
+        se_impedance: Single-ended impedance for DQ/CA/CKE/CS (default: 40Ω ±10%)
+    """
+
+    diff_impedance: Toleranced = Toleranced.percent(85, 5)
+    "CK/DQS differential impedance"
+
+    se_impedance: Toleranced = Toleranced.percent(40, 10)
+    "DQ/CA/CKE/CS single-ended impedance"
+
+
+@dataclass(frozen=True)
 class LPDDR4ConstraintParams:
     """LPDDR4 Constraint Parameters
 
@@ -235,13 +263,11 @@ class LPDDR4Constraint(SignalConstraint["LPDDR4"]):
         self.params = params or LPDDR4ConstraintParams()
 
         if not diff_structure:
-            # LPDDR4 uses 80Ω differential impedance for CK/DQS
             diff_structure = current.substrate.differential_routing_structure(
-                Toleranced.percent(85, 5)
+                LPDDR4Impedances().diff_impedance
             )
         if not se_structure:
-            # LPDDR4 uses ~40Ω single-ended impedance
-            se_structure = current.substrate.routing_structure(Toleranced.percent(40, 10))
+            se_structure = current.substrate.routing_structure(LPDDR4Impedances().se_impedance)
 
         self.ck_constraint = DiffPairConstraint(
             skew=self.params.skew_ck, loss=self.params.loss, structure=diff_structure
@@ -351,3 +377,39 @@ class LPDDR4Constraint(SignalConstraint["LPDDR4"]):
                             self.params.skew_dq_dq * 0.5
                         )
                     )
+
+
+def connect_lpddr4(
+    src: LPDDR4,
+    dst: LPDDR4,
+    width: LPDDR4Width,
+    rank: LPDDR4Rank,
+    diff_structure: DifferentialRoutingStructure | None = None,
+    se_structure: RoutingStructure | None = None,
+):
+    """Connect and constrain an LPDDR4 discrete point-to-point link.
+
+    Convenience function that creates an LPDDR4Constraint and applies it via
+    ``constrain_topology``. Equivalent to Stanza's ``connect-LPDDR4``.
+
+    Args:
+        src: Source LPDDR4 port (controller side)
+        dst: Destination LPDDR4 port (memory side)
+        width: Channel width (x16, x32, or x64)
+        rank: Rank configuration
+        diff_structure: Differential routing structure for CK/DQS.
+            If None, auto-resolved from current substrate.
+        se_structure: Single-ended routing structure for other signals.
+            If None, auto-resolved from current substrate.
+
+    Returns:
+        The LPDDR4Constraint that was applied.
+    """
+    constraint = LPDDR4Constraint(
+        width=width,
+        rank=rank,
+        diff_structure=diff_structure,
+        se_structure=se_structure,
+    )
+    constraint.constrain_topology(src, dst)
+    return constraint

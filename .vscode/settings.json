@@ -1,7 +1,4 @@
 {
-  "python.analysis.typeCheckingMode": "standard",
-  "python.analysis.autoSearchPaths": true,
-  "python.analysis.useLibraryCodeForTypes": true,
   "python.analysis.enableTroubleshootMissingImports": true,
   "python.analysis.autoImportCompletions": true,
   "python.analysis.packageIndexDepths": [
@@ -20,5 +17,11 @@
       "depth": 10,
       "includeAllSymbols": true
     }
+  ],
+  "cSpell.words": [
+    "GDDR",
+    "JESD",
+    "LPDDR",
+    "QSFP"
   ]
 }
