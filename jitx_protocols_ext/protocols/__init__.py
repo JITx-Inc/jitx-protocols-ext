@@ -19,8 +19,22 @@ from .pcie import (
     PCIeWidth,
     connect_pcie_null_modem,
 )
-from .sata import SATA
-from .sfp import QSFP, QSFP_DD, SFP, SFP_DD, SFP_Lane, SFPConstraint, SFPLink, link_to_lane_count
+from .sata import SATA, connect_sata
+from .sfp import (
+    QSFP,
+    QSFP_DD,
+    SFP,
+    SFP_DD,
+    SFP_Lane,
+    SFPConstraint,
+    SFPLink,
+    SFPStandard,
+    connect_qsfp,
+    connect_qsfp_dd,
+    connect_sfp,
+    connect_sfp_dd,
+    link_to_lane_count,
+)
 
 __all__ = [
     # JESD204
@@ -40,6 +54,7 @@ __all__ = [
     "connect_pcie_null_modem",
     # SATA
     "SATA",
+    "connect_sata",
     # SFP
     "SFP",
     "SFP_DD",
@@ -47,6 +62,11 @@ __all__ = [
     "QSFP_DD",
     "SFP_Lane",
     "SFPLink",
+    "SFPStandard",
     "SFPConstraint",
+    "connect_sfp",
+    "connect_sfp_dd",
+    "connect_qsfp",
+    "connect_qsfp_dd",
     "link_to_lane_count",
 ]

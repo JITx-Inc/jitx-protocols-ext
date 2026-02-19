@@ -121,6 +121,18 @@ def width_to_lane_count(width: DDR4Width) -> int:
     raise ValueError(f"Unknown DDR4 width: {width}")
 
 
+def rank_to_int(rank: DDR4Rank) -> int:
+    """Convert DDR4 rank enum to integer count of CS_n signals.
+
+    Args:
+        rank: DDR4 rank enum
+
+    Returns:
+        Number of CS_n (and CKE, ODT) signals
+    """
+    return rank.value
+
+
 class DDR4Topology(Enum):
     """DDR4 Topology Type
 
@@ -600,18 +612,62 @@ class DDR4AccConstraint(SignalConstraint["DDR4AccChannel"]):
 
 
 @inner
+class DDR4DataAccConstraint(SignalConstraint["DDR4"]):
+    """Signal Integrity Constraint for DDR4 Data-to-ACC Cross-Channel Timing
+
+    Constrains the timing relationship between CK and DQS signals across
+    the data and address/command/control channels.
+
+    Args:
+        params: Data-to-ACC constraint parameters
+    """
+
+    def __init__(self, params: DDR4DataAccConstraintParams | None = None):
+        super().__init__()
+        self.params = params or DDR4DataAccConstraintParams()
+
+    def constrain(self, src: DDR4, dst: DDR4):
+        """Apply cross-channel CK-to-DQS timing constraints.
+
+        Constrains each DQS.P signal relative to CK[0].P with the
+        specified timing window (default: -85ps to +935ps).
+
+        Args:
+            src: Source DDR4 port
+            dst: Destination DDR4 port
+        """
+        guide_ck = Topology(src.acc.CK[0].p, dst.acc.CK[0].p)
+
+        for src_dqs, dst_dqs in zip(src.data.DQS, dst.data.DQS, strict=True):
+            target_dqs = Topology(src_dqs.p, dst_dqs.p)
+            self.add(
+                ConstrainReferenceDifference(guide_ck, [target_dqs]).timing_difference(
+                    self.params.skew_ck_dqs
+                )
+            )
+
+
+@inner
 class DDR4Constraint(SignalConstraint["DDR4"]):
     """Complete DDR4 Signal Integrity Constraint
 
     Combines data channel, ACC channel, and cross-channel constraints.
 
+    When explicit routing structures are provided, they are passed through to
+    the sub-constraints. When omitted, the sub-constraints will auto-resolve
+    routing structures from ``current.substrate``.
+
     Args:
         width: DDR4 channel width
         rank: Rank configuration
-        topology: Memory topology
-        data_constraint: Data channel constraint
-        acc_constraint: ACC channel constraint
-        data_acc_params: Data-to-ACC constraint parameters
+        topology: Memory topology (default: FlyBy)
+        diff_ck_rs: Differential routing structure for CK (90Ω ±5%)
+        diff_dqs_rs: Differential routing structure for DQS (100Ω ±5%)
+        se_dq_rs: Single-ended routing structure for DQ/DM_n (50Ω ±5%)
+        se_rs: Single-ended routing structure for ACC signals (45Ω ±5%)
+        data_constraint: Data channel constraint (overrides diff_dqs_rs/se_dq_rs)
+        acc_constraint: ACC channel constraint (overrides diff_ck_rs/se_rs)
+        data_acc_constraint: Data-to-ACC cross-channel constraint
     """
 
     def __init__(
@@ -619,24 +675,43 @@ class DDR4Constraint(SignalConstraint["DDR4"]):
         width: DDR4Width,
         rank: DDR4Rank,
         topology: DDR4Topology = DDR4Topology.FlyBy,
+        diff_ck_rs: DifferentialRoutingStructure | None = None,
+        diff_dqs_rs: DifferentialRoutingStructure | None = None,
+        se_dq_rs: RoutingStructure | None = None,
+        se_rs: RoutingStructure | None = None,
         data_constraint: SignalConstraint[DDR4DataChannel] | None = None,
         acc_constraint: SignalConstraint[DDR4AccChannel] | None = None,
-        data_acc_params: DDR4DataAccConstraintParams | None = None,
+        data_acc_constraint: SignalConstraint[DDR4] | None = None,
     ):
         super().__init__()
         self.width = width
         self.rank = rank
         self.topology = topology
-        self.data_constraint = (
-            data_constraint if data_constraint is not None else DDR4DataConstraint()
+
+        if data_constraint is not None:
+            self.data_constraint = data_constraint
+        else:
+            self.data_constraint = DDR4DataConstraint(
+                diff_dqs_structure=diff_dqs_rs,
+                se_dq_structure=se_dq_rs,
+            )
+
+        if acc_constraint is not None:
+            self.acc_constraint = acc_constraint
+        else:
+            self.acc_constraint = DDR4AccConstraint(
+                diff_ck_structure=diff_ck_rs,
+                se_structure=se_rs,
+            )
+
+        self.data_acc_constraint: SignalConstraint[DDR4] = (
+            data_acc_constraint
+            if data_acc_constraint is not None
+            else DDR4DataAccConstraint()
         )
-        self.acc_constraint = (
-            acc_constraint if acc_constraint is not None else DDR4AccConstraint()
-        )
-        self.data_acc_params = data_acc_params or DDR4DataAccConstraintParams()
 
     def constrain(self, src: DDR4, dst: DDR4):
-        """Apply all DDR4 constraints
+        """Apply all DDR4 constraints.
 
         Applies:
         - Data channel constraints (DQ, DQS, DM_n)
@@ -647,21 +722,53 @@ class DDR4Constraint(SignalConstraint["DDR4"]):
             src: Source DDR4 port
             dst: Destination DDR4 port
         """
-        # Constrain data channel
         self.data_constraint.constrain(src.data, dst.data)
-
-        # Constrain ACC channel
         self.acc_constraint.constrain(src.acc, dst.acc)
+        self.data_acc_constraint.constrain(src, dst)
 
-        # Cross-channel constraint: CK.P to DQS.P timing
-        # Use first CK pair as reference
-        guide_ck = Topology(src.acc.CK[0].p, dst.acc.CK[0].p)
 
-        # Apply CK-to-DQS timing constraint for all DQS pairs
-        for src_dqs, dst_dqs in zip(src.data.DQS, dst.data.DQS, strict=True):
-            dqs_topo = Topology(src_dqs.p, dst_dqs.p)
-            self.add(
-                ConstrainReferenceDifference(guide_ck, [dqs_topo]).timing_difference(
-                    self.data_acc_params.skew_ck_dqs
-                )
-            )
+def connect_ddr4(
+    src: DDR4,
+    dst: DDR4,
+    width: DDR4Width = DDR4Width.x16,
+    rank: DDR4Rank = DDR4Rank.SingleRank,
+    topology: DDR4Topology = DDR4Topology.FlyBy,
+    diff_ck_rs: DifferentialRoutingStructure | None = None,
+    diff_dqs_rs: DifferentialRoutingStructure | None = None,
+    se_dq_rs: RoutingStructure | None = None,
+    se_rs: RoutingStructure | None = None,
+):
+    """Connect and constrain a DDR4 discrete point-to-point link.
+
+    Convenience function that creates a DDR4Constraint and applies it via
+    ``constrain_topology``. Equivalent to Stanza's ``connect-DDR4``.
+
+    Args:
+        src: Source DDR4 port (controller side)
+        dst: Destination DDR4 port (memory side)
+        width: DDR4 channel width (default: x16)
+        rank: Rank configuration (default: SingleRank)
+        topology: Connection topology (default: FlyBy)
+        diff_ck_rs: Differential routing structure for CK (90Ω ±5%).
+            If None, auto-resolved from current substrate.
+        diff_dqs_rs: Differential routing structure for DQS (100Ω ±5%).
+            If None, auto-resolved from current substrate.
+        se_dq_rs: Single-ended routing structure for DQ/DM_n (50Ω ±5%).
+            If None, auto-resolved from current substrate.
+        se_rs: Single-ended routing structure for ACC signals (45Ω ±5%).
+            If None, auto-resolved from current substrate.
+
+    Returns:
+        The DDR4Constraint that was applied.
+    """
+    constraint = DDR4Constraint(
+        width=width,
+        rank=rank,
+        topology=topology,
+        diff_ck_rs=diff_ck_rs,
+        diff_dqs_rs=diff_dqs_rs,
+        se_dq_rs=se_dq_rs,
+        se_rs=se_rs,
+    )
+    constraint.constrain_topology(src, dst)
+    return constraint
