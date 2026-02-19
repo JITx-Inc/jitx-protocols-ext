@@ -218,9 +218,7 @@ class LPDDR5Constraint(SignalConstraint["LPDDR5"]):
         imped = LPDDR5Impedances()
 
         if not diff_ck_structure:
-            diff_ck_structure = current.substrate.differential_routing_structure(
-                imped.ck_impedance
-            )
+            diff_ck_structure = current.substrate.differential_routing_structure(imped.ck_impedance)
         if not diff_wck_rdqs_structure:
             diff_wck_rdqs_structure = current.substrate.differential_routing_structure(
                 imped.wck_rdqs_impedance

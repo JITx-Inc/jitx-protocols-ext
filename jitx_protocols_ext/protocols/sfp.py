@@ -243,9 +243,7 @@ class SFPConstraint(SignalConstraint["SFP_Lane"]):
     ):
         super().__init__()
         if not structure:
-            structure = current.substrate.differential_routing_structure(
-                standard.impedance
-            )
+            structure = current.substrate.differential_routing_structure(standard.impedance)
         self.diffpair_constraint = DiffPairConstraint(
             skew=standard.skew, loss=standard.loss, structure=structure
         )
@@ -288,9 +286,9 @@ class SFPConstraint(SignalConstraint["SFP_Lane"]):
 
             # Add inter-lane timing constraint
             self.add(
-                ConstrainReferenceDifference(
-                    ref_tx_topo, other_tx_topos
-                ).timing_difference(self.lane_skew)
+                ConstrainReferenceDifference(ref_tx_topo, other_tx_topos).timing_difference(
+                    self.lane_skew
+                )
             )
 
             # Do the same for RX lanes
@@ -301,9 +299,9 @@ class SFPConstraint(SignalConstraint["SFP_Lane"]):
             ]
 
             self.add(
-                ConstrainReferenceDifference(
-                    ref_rx_topo, other_rx_topos
-                ).timing_difference(self.lane_skew)
+                ConstrainReferenceDifference(ref_rx_topo, other_rx_topos).timing_difference(
+                    self.lane_skew
+                )
             )
 
 

@@ -190,9 +190,7 @@ class GDDR7Constraint(SignalConstraint["GDDR7"]):
                 GDDR7Impedances().diff_impedance
             )
         if not se_structure:
-            se_structure = current.substrate.routing_structure(
-                GDDR7Impedances().se_impedance
-            )
+            se_structure = current.substrate.routing_structure(GDDR7Impedances().se_impedance)
 
         self.rck_constraint = DiffPairConstraint(
             skew=self.params.skew_rck, loss=self.params.loss, structure=diff_structure
