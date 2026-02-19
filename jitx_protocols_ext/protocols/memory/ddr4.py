@@ -247,9 +247,7 @@ class DDR4AccChannel(Port):
     ALERT_n = Port()
     "Alert (active low)"
 
-    def __init__(
-        self, rank: DDR4Rank, ck_count: int = 2, bg_count: int = 2, ba_count: int = 2
-    ):
+    def __init__(self, rank: DDR4Rank, ck_count: int = 2, bg_count: int = 2, ba_count: int = 2):
         rank_count = rank.value
 
         self.CK = tuple(DiffPair() for _ in range(ck_count))
@@ -422,9 +420,7 @@ class DDR4DataConstraint(SignalConstraint["DDR4DataChannel"]):
                 DDR4Impedances().dqs_impedance
             )
         if not se_dq_structure:
-            se_dq_structure = current.substrate.routing_structure(
-                DDR4Impedances().dq_impedance
-            )
+            se_dq_structure = current.substrate.routing_structure(DDR4Impedances().dq_impedance)
 
         self.dqs_constraint = DiffPairConstraint(
             skew=self.params.skew_dqs, loss=self.params.loss, structure=diff_dqs_structure
@@ -459,9 +455,7 @@ class DDR4DataConstraint(SignalConstraint["DDR4DataChannel"]):
             byte_end = min(byte_start + 8, dq_count)
 
             # Create topologies for DQ signals in this byte lane
-            dq_topos = [
-                Topology(src.DQ[j], dst.DQ[j]) for j in range(byte_start, byte_end)
-            ]
+            dq_topos = [Topology(src.DQ[j], dst.DQ[j]) for j in range(byte_start, byte_end)]
 
             # Add DM_n topology for this byte lane
             dm_topo = Topology(src.DM_n[i], dst.DM_n[i])
@@ -512,9 +506,7 @@ class DDR4AccConstraint(SignalConstraint["DDR4AccChannel"]):
                 DDR4Impedances().ck_impedance
             )
         if not se_structure:
-            se_structure = current.substrate.routing_structure(
-                DDR4Impedances().acc_impedance
-            )
+            se_structure = current.substrate.routing_structure(DDR4Impedances().acc_impedance)
 
         self.ck_constraint = DiffPairConstraint(
             skew=self.params.skew_ck, loss=self.params.loss, structure=diff_ck_structure
@@ -564,9 +556,9 @@ class DDR4AccConstraint(SignalConstraint["DDR4AccChannel"]):
             )
             # Timing relative to ACC group
             self.add(
-                ConstrainReferenceDifference(
-                    guide_acc_group, [sig_topo]
-                ).timing_difference(self.params.skew_cmd_addr_ctrl)
+                ConstrainReferenceDifference(guide_acc_group, [sig_topo]).timing_difference(
+                    self.params.skew_cmd_addr_ctrl
+                )
             )
             # Structure and loss
             constrained = Constrain(sig_topo).insertion_loss(self.params.loss)
@@ -705,9 +697,7 @@ class DDR4Constraint(SignalConstraint["DDR4"]):
             )
 
         self.data_acc_constraint: SignalConstraint[DDR4] = (
-            data_acc_constraint
-            if data_acc_constraint is not None
-            else DDR4DataAccConstraint()
+            data_acc_constraint if data_acc_constraint is not None else DDR4DataAccConstraint()
         )
 
     def constrain(self, src: DDR4, dst: DDR4):

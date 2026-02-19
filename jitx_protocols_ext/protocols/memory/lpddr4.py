@@ -267,9 +267,7 @@ class LPDDR4Constraint(SignalConstraint["LPDDR4"]):
                 LPDDR4Impedances().diff_impedance
             )
         if not se_structure:
-            se_structure = current.substrate.routing_structure(
-                LPDDR4Impedances().se_impedance
-            )
+            se_structure = current.substrate.routing_structure(LPDDR4Impedances().se_impedance)
 
         self.ck_constraint = DiffPairConstraint(
             skew=self.params.skew_ck, loss=self.params.loss, structure=diff_structure

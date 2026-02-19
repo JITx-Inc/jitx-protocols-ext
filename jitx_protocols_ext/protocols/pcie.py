@@ -237,13 +237,11 @@ class PCIeConstraint(SignalConstraint["PCIe"]):
         self,
         standard: PCIeStandard,
         structure: DifferentialRoutingStructure | None = None,
-        xover: bool = False
+        xover: bool = False,
     ):
         if not structure:
-            self.structure = current.substrate.differential_routing_structure(
-                standard.impedance
-            )
-        else :
+            self.structure = current.substrate.differential_routing_structure(standard.impedance)
+        else:
             self.structure = structure
         self.xover = xover
         self.diffpair_constraint = DiffPairConstraint(
@@ -286,6 +284,7 @@ class PCIeConstraint(SignalConstraint["PCIe"]):
                 "Mismatched refclk presence: both endpoints must have refclk or neither"
             )
 
+
 def connect_pcie_null_modem(a: PCIe, b: PCIe):
     """Connect two PCIe bundles with TX-to-RX crossover.
 
@@ -318,8 +317,7 @@ def connect_pcie_null_modem(a: PCIe, b: PCIe):
     """
     if len(a.data.lane) != len(b.data.lane):
         raise ValueError(
-            f"Mismatched lane count: a has {len(a.data.lane)} lanes, "
-            f"b has {len(b.data.lane)} lanes"
+            f"Mismatched lane count: a has {len(a.data.lane)} lanes, b has {len(b.data.lane)} lanes"
         )
     conns = []
     # Connect lanes with TX->RX crossover
@@ -331,9 +329,7 @@ def connect_pcie_null_modem(a: PCIe, b: PCIe):
     if a.data.refclk is not None and b.data.refclk is not None:
         conns.append([a.data.refclk >> b.data.refclk])
     elif (a.data.refclk is None) != (b.data.refclk is None):
-        raise ValueError(
-            "Mismatched refclk presence: both endpoints must have refclk or neither"
-        )
+        raise ValueError("Mismatched refclk presence: both endpoints must have refclk or neither")
 
     # Connect control signals straight-through if present on both sides
     if a.control is not None and b.control is not None:

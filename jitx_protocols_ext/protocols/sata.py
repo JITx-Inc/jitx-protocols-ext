@@ -114,9 +114,7 @@ class SATA(Port):
             structure: DifferentialRoutingStructure | None = None,
         ):
             if not structure:
-                structure = current.substrate.differential_routing_structure(
-                    standard.impedance
-                )
+                structure = current.substrate.differential_routing_structure(standard.impedance)
             self.diffpair_constraint = DiffPairConstraint(
                 skew=standard.skew, loss=standard.loss, structure=structure
             )
