@@ -83,6 +83,18 @@ class LPDDR5Rank(Enum):
     DualRank = 2
 
 
+def rank_to_int(rank: LPDDR5Rank) -> int:
+    """Convert LPDDR5 rank enum to integer count of CS signals per channel.
+
+    Args:
+        rank: LPDDR5 rank enum
+
+    Returns:
+        Number of CS signals per channel
+    """
+    return rank.value
+
+
 class LPDDR5DataLane(Port):
     """LPDDR5 x8 Data Lane Bundle
 
@@ -137,6 +149,30 @@ class LPDDR5(Port):
 
 
 @dataclass(frozen=True)
+class LPDDR5Impedances:
+    """LPDDR5 Impedance Specifications
+
+    Attributes:
+        ck_impedance: CK differential impedance (default: 100Ω ±5%)
+        wck_rdqs_impedance: WCK/RDQS differential impedance (default: 100Ω ±5%)
+        dq_impedance: DQ/DMI single-ended impedance (default: 50Ω ±5%)
+        ca_impedance: CA/CS single-ended impedance (default: 50Ω ±5%)
+    """
+
+    ck_impedance: Toleranced = Toleranced.percent(100, 5)
+    "CK differential impedance"
+
+    wck_rdqs_impedance: Toleranced = Toleranced.percent(100, 5)
+    "WCK/RDQS differential impedance"
+
+    dq_impedance: Toleranced = Toleranced.percent(50, 5)
+    "DQ/DMI single-ended impedance"
+
+    ca_impedance: Toleranced = Toleranced.percent(50, 5)
+    "CA/CS single-ended impedance"
+
+
+@dataclass(frozen=True)
 class LPDDR5ConstraintParams:
     """LPDDR5 Constraint Parameters"""
 
@@ -170,31 +206,39 @@ class LPDDR5Constraint(SignalConstraint["LPDDR5"]):
         width: LPDDR5Width,
         rank: LPDDR5Rank,
         params: LPDDR5ConstraintParams | None = None,
-        diff_structure: DifferentialRoutingStructure | None = None,
-        se_structure: RoutingStructure | None = None,
+        diff_ck_structure: DifferentialRoutingStructure | None = None,
+        diff_wck_rdqs_structure: DifferentialRoutingStructure | None = None,
+        se_dq_structure: RoutingStructure | None = None,
+        se_ca_structure: RoutingStructure | None = None,
     ):
         super().__init__()
         self.width = width
         self.rank = rank
         self.params = params or LPDDR5ConstraintParams()
+        imped = LPDDR5Impedances()
 
-        if not diff_structure:
-            diff_structure = current.substrate.differential_routing_structure(
-                Toleranced.percent(100, 5)
+        if not diff_ck_structure:
+            diff_ck_structure = current.substrate.differential_routing_structure(imped.ck_impedance)
+        if not diff_wck_rdqs_structure:
+            diff_wck_rdqs_structure = current.substrate.differential_routing_structure(
+                imped.wck_rdqs_impedance
             )
-        if not se_structure:
-            se_structure = current.substrate.routing_structure(Toleranced.percent(50, 5))
+        if not se_dq_structure:
+            se_dq_structure = current.substrate.routing_structure(imped.dq_impedance)
+        if not se_ca_structure:
+            se_ca_structure = current.substrate.routing_structure(imped.ca_impedance)
 
         self.ck_constraint = DiffPairConstraint(
-            skew=self.params.skew_ck, loss=self.params.loss, structure=diff_structure
+            skew=self.params.skew_ck, loss=self.params.loss, structure=diff_ck_structure
         )
         self.wck_constraint = DiffPairConstraint(
-            skew=self.params.skew_wck, loss=self.params.loss, structure=diff_structure
+            skew=self.params.skew_wck, loss=self.params.loss, structure=diff_wck_rdqs_structure
         )
         self.rdqs_constraint = DiffPairConstraint(
-            skew=self.params.skew_rdqs, loss=self.params.loss, structure=diff_structure
+            skew=self.params.skew_rdqs, loss=self.params.loss, structure=diff_wck_rdqs_structure
         )
-        self.se_structure = se_structure
+        self.se_dq_structure = se_dq_structure
+        self.se_ca_structure = se_ca_structure
 
     def constrain(self, src: LPDDR5, dst: LPDDR5):
         """Apply all LPDDR5 constraints
@@ -224,7 +268,7 @@ class LPDDR5Constraint(SignalConstraint["LPDDR5"]):
                     )
                 )
                 cs_constrained = Constrain(cs_topo).insertion_loss(self.params.loss)
-                cs_constrained.structure(self.se_structure)
+                cs_constrained.structure(self.se_ca_structure)
                 self.add(cs_constrained)
 
             for ca_bit in range(7):
@@ -235,7 +279,7 @@ class LPDDR5Constraint(SignalConstraint["LPDDR5"]):
                     )
                 )
                 ca_constrained = Constrain(ca_topo).insertion_loss(self.params.loss)
-                ca_constrained.structure(self.se_structure)
+                ca_constrained.structure(self.se_ca_structure)
                 self.add(ca_constrained)
 
             # Constrain data lanes (2 per channel)
@@ -277,7 +321,7 @@ class LPDDR5Constraint(SignalConstraint["LPDDR5"]):
                         )
                     )
                     dq_constrained = Constrain(dq_topo).insertion_loss(self.params.loss)
-                    dq_constrained.structure(self.se_structure)
+                    dq_constrained.structure(self.se_dq_structure)
                     self.add(dq_constrained)
 
                 # DMI constraints
@@ -288,11 +332,55 @@ class LPDDR5Constraint(SignalConstraint["LPDDR5"]):
                     )
                 )
                 dmi_constrained = Constrain(dmi_topo).insertion_loss(self.params.loss)
-                dmi_constrained.structure(self.se_structure)
+                dmi_constrained.structure(self.se_dq_structure)
                 self.add(dmi_constrained)
 
         # Reset signal (shared across all channels)
         reset_topo = Topology(src.reset_n, dst.reset_n)
         reset_constrained = Constrain(reset_topo).insertion_loss(self.params.loss)
-        reset_constrained.structure(self.se_structure)
+        reset_constrained.structure(self.se_ca_structure)
         self.add(reset_constrained)
+
+
+def connect_lpddr5(
+    src: LPDDR5,
+    dst: LPDDR5,
+    width: LPDDR5Width,
+    rank: LPDDR5Rank = LPDDR5Rank.SingleRank,
+    diff_ck_structure: DifferentialRoutingStructure | None = None,
+    diff_wck_rdqs_structure: DifferentialRoutingStructure | None = None,
+    se_dq_structure: RoutingStructure | None = None,
+    se_ca_structure: RoutingStructure | None = None,
+):
+    """Connect and constrain an LPDDR5 discrete point-to-point link.
+
+    Convenience function that creates an LPDDR5Constraint and applies it via
+    ``constrain_topology``. Equivalent to Stanza's ``connect-LPDDR5``.
+
+    Args:
+        src: Source LPDDR5 port (controller side)
+        dst: Destination LPDDR5 port (memory side)
+        width: Channel width (x32 or x64)
+        rank: Rank configuration (default: SingleRank)
+        diff_ck_structure: Differential routing structure for CK (100Ω ±5%).
+            If None, auto-resolved from current substrate.
+        diff_wck_rdqs_structure: Differential routing structure for WCK/RDQS (100Ω ±5%).
+            If None, auto-resolved from current substrate.
+        se_dq_structure: Single-ended routing structure for DQ/DMI (50Ω ±5%).
+            If None, auto-resolved from current substrate.
+        se_ca_structure: Single-ended routing structure for CA/CS (50Ω ±5%).
+            If None, auto-resolved from current substrate.
+
+    Returns:
+        The LPDDR5Constraint that was applied.
+    """
+    constraint = LPDDR5Constraint(
+        width=width,
+        rank=rank,
+        diff_ck_structure=diff_ck_structure,
+        diff_wck_rdqs_structure=diff_wck_rdqs_structure,
+        se_dq_structure=se_dq_structure,
+        se_ca_structure=se_ca_structure,
+    )
+    constraint.constrain_topology(src, dst)
+    return constraint

@@ -114,9 +114,7 @@ class SATA(Port):
             structure: DifferentialRoutingStructure | None = None,
         ):
             if not structure:
-                structure = current.substrate.differential_routing_structure(
-                    standard.impedance
-                )
+                structure = current.substrate.differential_routing_structure(standard.impedance)
             self.diffpair_constraint = DiffPairConstraint(
                 skew=standard.skew, loss=standard.loss, structure=structure
             )
@@ -132,3 +130,28 @@ class SATA(Port):
             self.diffpair_constraint.constrain(src.lane.TX, dst.lane.RX)
             # Constrain RX path (src RX <- dst TX)
             self.diffpair_constraint.constrain(src.lane.RX, dst.lane.TX)
+
+
+def connect_sata(
+    src: SATA,
+    dst: SATA,
+    gen: SATA.Generation = SATA.Generation.SATA3p0,
+    structure: DifferentialRoutingStructure | None = None,
+):
+    """Connect and constrain a SATA link.
+
+    Convenience function that creates a SATA.Constraint and applies it via
+    ``constrain_topology``. Equivalent to Stanza's ``connect-SATA``.
+
+    Args:
+        src: Source SATA port
+        dst: Destination SATA port
+        gen: SATA generation (default: SATA3p0)
+        structure: Differential routing structure. If None, auto-resolved.
+
+    Returns:
+        The SATA.Constraint that was applied.
+    """
+    constraint = SATA.Constraint(gen, structure=structure)
+    constraint.constrain_topology(src, dst)
+    return constraint
