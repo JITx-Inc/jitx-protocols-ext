@@ -305,3 +305,91 @@ class SFPConstraint(SignalConstraint["SFP_Lane"]):
                     ref_rx_topo, other_rx_topos
                 ).timing_difference(self.lane_skew)
             )
+
+
+def connect_sfp(
+    src: SFP_Lane,
+    dst: SFP_Lane,
+    link: SFPLink = SFPLink.SFP,
+    structure: DifferentialRoutingStructure | None = None,
+):
+    """Connect and constrain a single-lane SFP link.
+
+    Args:
+        src: Source SFP port
+        dst: Destination SFP port
+        link: SFP link type (default: SFP)
+        structure: Differential routing structure. If None, auto-resolved.
+
+    Returns:
+        The SFPConstraint that was applied.
+    """
+    constraint = SFPConstraint(link.value, structure=structure)
+    constraint.constrain_topology(src, dst)
+    return constraint
+
+
+def connect_sfp_dd(
+    src: SFP_Lane,
+    dst: SFP_Lane,
+    link: SFPLink = SFPLink.SFP_DD,
+    structure: DifferentialRoutingStructure | None = None,
+):
+    """Connect and constrain a dual-lane SFP-DD link.
+
+    Args:
+        src: Source SFP-DD port
+        dst: Destination SFP-DD port
+        link: SFP link type (default: SFP_DD)
+        structure: Differential routing structure. If None, auto-resolved.
+
+    Returns:
+        The SFPConstraint that was applied.
+    """
+    constraint = SFPConstraint(link.value, structure=structure)
+    constraint.constrain_topology(src, dst)
+    return constraint
+
+
+def connect_qsfp(
+    src: SFP_Lane,
+    dst: SFP_Lane,
+    link: SFPLink = SFPLink.QSFP,
+    structure: DifferentialRoutingStructure | None = None,
+):
+    """Connect and constrain a quad-lane QSFP link.
+
+    Args:
+        src: Source QSFP port
+        dst: Destination QSFP port
+        link: SFP link type (default: QSFP)
+        structure: Differential routing structure. If None, auto-resolved.
+
+    Returns:
+        The SFPConstraint that was applied.
+    """
+    constraint = SFPConstraint(link.value, structure=structure)
+    constraint.constrain_topology(src, dst)
+    return constraint
+
+
+def connect_qsfp_dd(
+    src: SFP_Lane,
+    dst: SFP_Lane,
+    link: SFPLink = SFPLink.QSFP_DD,
+    structure: DifferentialRoutingStructure | None = None,
+):
+    """Connect and constrain an eight-lane QSFP-DD link.
+
+    Args:
+        src: Source QSFP-DD port
+        dst: Destination QSFP-DD port
+        link: SFP link type (default: QSFP_DD)
+        structure: Differential routing structure. If None, auto-resolved.
+
+    Returns:
+        The SFPConstraint that was applied.
+    """
+    constraint = SFPConstraint(link.value, structure=structure)
+    constraint.constrain_topology(src, dst)
+    return constraint

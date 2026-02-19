@@ -112,6 +112,22 @@ class GDDR7(Port):
 
 
 @dataclass(frozen=True)
+class GDDR7Impedances:
+    """GDDR7 Impedance Specifications
+
+    Attributes:
+        diff_impedance: RCK/WCK differential impedance (default: 100Ω ±10%)
+        se_impedance: DQ/DQE/CA/ERR single-ended impedance (default: 50Ω ±10%)
+    """
+
+    diff_impedance: Toleranced = Toleranced.percent(100, 10)
+    "RCK/WCK differential impedance"
+
+    se_impedance: Toleranced = Toleranced.percent(50, 10)
+    "DQ/DQE/CA/ERR single-ended impedance"
+
+
+@dataclass(frozen=True)
 class GDDR7ConstraintParams:
     """GDDR7 Constraint Parameters"""
 
@@ -171,10 +187,12 @@ class GDDR7Constraint(SignalConstraint["GDDR7"]):
 
         if not diff_structure:
             diff_structure = current.substrate.differential_routing_structure(
-                Toleranced.percent(100, 10)
+                GDDR7Impedances().diff_impedance
             )
         if not se_structure:
-            se_structure = current.substrate.routing_structure(Toleranced.percent(50, 10))
+            se_structure = current.substrate.routing_structure(
+                GDDR7Impedances().se_impedance
+            )
 
         self.rck_constraint = DiffPairConstraint(
             skew=self.params.skew_rck, loss=self.params.loss, structure=diff_structure
@@ -287,3 +305,33 @@ class GDDR7Constraint(SignalConstraint["GDDR7"]):
                     self.params.skew_reset_ca
                 )
             )
+
+
+def connect_gddr7(
+    src: GDDR7,
+    dst: GDDR7,
+    diff_structure: DifferentialRoutingStructure | None = None,
+    se_structure: RoutingStructure | None = None,
+):
+    """Connect and constrain a GDDR7 link.
+
+    Convenience function that creates a GDDR7Constraint and applies it via
+    ``constrain_topology``. Equivalent to Stanza's ``connect-GDDR7``.
+
+    Args:
+        src: Source GDDR7 port (GPU side)
+        dst: Destination GDDR7 port (memory side)
+        diff_structure: Differential routing structure for RCK/WCK (100Ω ±10%).
+            If None, auto-resolved from current substrate.
+        se_structure: Single-ended routing structure for DQ/CA (50Ω ±10%).
+            If None, auto-resolved from current substrate.
+
+    Returns:
+        The GDDR7Constraint that was applied.
+    """
+    constraint = GDDR7Constraint(
+        diff_structure=diff_structure,
+        se_structure=se_structure,
+    )
+    constraint.constrain_topology(src, dst)
+    return constraint
