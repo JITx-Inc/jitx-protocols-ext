@@ -12,8 +12,8 @@ This example demonstrates:
 from jitx import Design, Net
 from jitx.circuit import Circuit
 
-from ....common.example_board import ExampleBoard, ExampleSubstrate
-from ....protocols.memory.lpddr4 import LPDDR4, LPDDR4Constraint, LPDDR4Rank, LPDDR4Width
+from examples.common.example_board import ExampleBoard, ExampleSubstrate
+from jitx_protocols_ext.protocols.memory.lpddr4 import LPDDR4, LPDDR4Constraint, LPDDR4Rank, LPDDR4Width
 from .lpddr4_components import LPDDR4ControllerCircuit, LPDDR4MemoryCircuit
 
 

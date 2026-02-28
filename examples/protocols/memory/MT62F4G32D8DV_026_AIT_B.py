@@ -17,7 +17,7 @@ from jitxlib.landpatterns.package import RectanglePackage
 from jitxlib.landpatterns.pads import SMDPadConfig
 from jitxlib.symbols.box import BoxSymbol
 
-from ....protocols.memory.lpddr5 import LPDDR5, LPDDR5Rank, LPDDR5Width
+from jitx_protocols_ext.protocols.memory.lpddr5 import LPDDR5, LPDDR5Rank, LPDDR5Width
 
 
 class MT62F4G32D8DVLandpattern(BGA):

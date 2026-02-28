@@ -12,9 +12,9 @@ from jitx import Design, Net
 from jitx.circuit import Circuit
 from jitx.common import DiffPair
 
-from ....common.example_board import ExampleBoard, ExampleSubstrate
-from ....common.example_components import BlockingCapacitor
-from ....protocols.sfp import QSFP, SFP, SFPConstraint, SFPLink
+from examples.common.example_board import ExampleBoard, ExampleSubstrate
+from examples.common.example_components import BlockingCapacitor
+from jitx_protocols_ext.protocols.sfp import QSFP, SFP, SFPConstraint, SFPLink
 from .sfp_components import SFPSwitchCircuit
 
 

@@ -13,7 +13,7 @@ from jitxlib.landpatterns.generators.bga import BGA
 from jitxlib.landpatterns.pads import SMDPadConfig
 from jitxlib.symbols.box import BoxSymbol
 
-from ....protocols.jesd204 import JESD204, JESD204LaneCount
+from jitx_protocols_ext.protocols.jesd204 import JESD204, JESD204LaneCount
 
 
 class JESD204BGALandpattern(BGA):

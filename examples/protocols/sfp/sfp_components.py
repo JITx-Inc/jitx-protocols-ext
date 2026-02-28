@@ -14,7 +14,7 @@ from jitxlib.landpatterns.generators.bga import BGA
 from jitxlib.landpatterns.pads import SMDPadConfig
 from jitxlib.symbols.box import BoxSymbol
 
-from ....protocols.sfp import QSFP, SFP, SFP_Lane
+from jitx_protocols_ext.protocols.sfp import QSFP, SFP, SFP_Lane
 
 
 class SFPSwitchBGALandpattern(BGA):
