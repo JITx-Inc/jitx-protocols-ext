@@ -30,7 +30,10 @@ This library provides:
 ## Installation
 
 ```bash
-# Install the package
+# Install from GitHub
+pip install git+https://github.com/JITx-Inc/jitx-protocols-ext.git
+
+# Install from local clone
 pip install .
 
 # Install with development dependencies
@@ -394,7 +397,7 @@ connect_qsfp_dd(src, dst, link=SFPLink.QSFP_DD, structure=None)
 
 ## Protocol Examples
 
-All examples are in `jitx_protocols_ext/examples/protocols/` and demonstrate:
+All examples are in `examples/protocols/` and demonstrate:
 - Component definition with landpatterns and pad mappings
 - Memory/controller circuits with direct ports or Provide() patterns
 - Topology connections using `>>` for SI constraint propagation
@@ -498,7 +501,7 @@ Single-lane SFP and 4-lane QSFP connections.
 
 ## Common Infrastructure
 
-### Board and Stackup (`common/example_board.py`)
+### Board and Stackup (`examples/common/example_board.py`)
 
 Provides a 6-layer PCB stackup suitable for high-speed designs.
 
@@ -533,7 +536,7 @@ Bottom Soldermask (13µm)
 - `MicroViaTop1-4`: Laser-drilled microvias to inner layers
 - `DefaultTHVia`: Mechanical through-hole via
 
-### Example Components (`common/example_components.py`)
+### Example Components (`examples/common/example_components.py`)
 
 Components with pin models for SI topology propagation.
 
@@ -578,7 +581,7 @@ hatch build
 ### Project Structure
 
 ```
-jitx_protocols_ext/
+src/jitx_protocols_ext/        # Installed package
 ├── protocols/                 # Protocol bundle definitions
 │   ├── memory/
 │   │   ├── ddr4.py           # DDR4 bundle + constraints
@@ -589,15 +592,16 @@ jitx_protocols_ext/
 │   ├── pcie.py               # PCIe bundle + constraints
 │   ├── sata.py               # SATA bundle + constraints
 │   └── sfp.py                # SFP/QSFP bundle + constraints
-├── examples/protocols/        # Example designs
+examples/                      # Example designs (not installed)
+├── common/                    # Shared example infrastructure
+│   ├── example_board.py      # Board, stackup, vias
+│   └── example_components.py # Blocking caps, pull-ups
+├── protocols/
 │   ├── jesd204/
 │   ├── memory/
 │   ├── pcie/
 │   ├── sata/
 │   └── sfp/
-├── common/                    # Shared infrastructure
-│   ├── example_board.py      # Board, stackup, vias
-│   └── example_components.py # Blocking caps, pull-ups
 tests/                         # Test suite
 ├── test_imports.py
 └── test_jesd204.py

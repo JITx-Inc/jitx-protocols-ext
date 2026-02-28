@@ -18,7 +18,7 @@ from jitxlib.landpatterns.generators.bga import BGA
 from jitxlib.landpatterns.pads import SMDPadConfig
 from jitxlib.symbols.box import BoxSymbol
 
-from ....protocols.memory.lpddr4 import LPDDR4, LPDDR4Rank, LPDDR4Width
+from jitx_protocols_ext.protocols.memory.lpddr4 import LPDDR4, LPDDR4Rank, LPDDR4Width
 
 
 class LPDDR4MemoryLandpattern(BGA):

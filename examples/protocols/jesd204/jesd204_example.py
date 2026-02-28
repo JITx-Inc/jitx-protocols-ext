@@ -11,8 +11,8 @@ This example demonstrates:
 from jitx import Design, Net
 from jitx.circuit import Circuit
 
-from ....common.example_board import ExampleBoard, ExampleSubstrate
-from ....protocols.jesd204 import JESD204, JESD204Constraint, JESD204LaneCount, JESD204Version
+from examples.common.example_board import ExampleBoard, ExampleSubstrate
+from jitx_protocols_ext.protocols.jesd204 import JESD204, JESD204Constraint, JESD204LaneCount, JESD204Version
 from .jesd204_components import JESD204ADCCircuit, JESD204FPGACircuit
 
 

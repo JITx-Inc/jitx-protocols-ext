@@ -48,25 +48,3 @@ def test_memory_subpackage():
     assert LPDDR5 is not None
 
 
-def test_common_subpackage():
-    """Common infrastructure subpackage imports."""
-    from jitx_protocols_ext.common.example_board import ExampleBoard, ExampleSubstrate
-    from jitx_protocols_ext.common.example_components import BlockingCapacitor
-
-    assert ExampleBoard is not None
-    assert ExampleSubstrate is not None
-    assert BlockingCapacitor is not None
-
-
-def test_examples_subpackage():
-    """Example subpackages import without error."""
-    from jitx_protocols_ext.examples.protocols.jesd204 import (
-        JESD204ADCComponent,
-        JESD204ExampleDesign,
-    )
-    from jitx_protocols_ext.examples.protocols.pcie import PCIeSwitchComponent  # noqa: F401
-    from jitx_protocols_ext.examples.protocols.sata import SATASwitchComponent
-
-    assert JESD204ADCComponent is not None
-    assert JESD204ExampleDesign is not None
-    assert SATASwitchComponent is not None

@@ -15,7 +15,7 @@ from jitxlib.landpatterns.generators.bga import BGA
 from jitxlib.landpatterns.pads import SMDPadConfig
 from jitxlib.symbols.box import BoxSymbol
 
-from ....protocols.pcie import PCIe, PCIeWidth
+from jitx_protocols_ext.protocols.pcie import PCIe, PCIeWidth
 
 
 class PCIeSwitchBGALandpattern(BGA):

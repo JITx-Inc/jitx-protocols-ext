@@ -25,3 +25,4 @@ parts-db/
 dist/
 build/
 *.egg-info/
+src/*.egg-info/
