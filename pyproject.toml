@@ -52,6 +52,7 @@ exclude = [
   "parts-db/",
   "3d-models/",
   ".venv/",
+  ".vscode/",
 ]
 
 # ---------------------------------------------------------------------------
@@ -107,6 +108,10 @@ select = [
   "B",    # flake8-bugbear
   "SIM",  # flake8-simplify
   "RUF",  # ruff-specific rules
+]
+ignore = [
+  "RUF009",  # function calls in dataclass defaults (Toleranced is immutable)
+  "RUF012",  # mutable class-var defaults (JITX Port() lists are intentional)
 ]
 
 [tool.ruff.lint.isort]
