@@ -10,8 +10,8 @@ This example demonstrates:
 from jitx import Design, Net
 from jitx.circuit import Circuit
 
-from ....common.example_board import ExampleBoard, ExampleSubstrate
-from ....protocols.memory.ddr4 import DDR4, DDR4Constraint, DDR4Rank, DDR4Width
+from examples.common.example_board import ExampleBoard, ExampleSubstrate
+from jitx_protocols_ext.protocols.memory.ddr4 import DDR4, DDR4Constraint, DDR4Rank, DDR4Width
 from .ddr4_components import DDR4ControllerCircuit, DDR4MemoryCircuit
 
 

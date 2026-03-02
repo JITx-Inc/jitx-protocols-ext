@@ -1,6 +1,6 @@
 # JITX Protocols Extension Package
 #
-# This package contains protocol bundles and example designs for various interfaces.
+# This package contains protocol bundles for various high-speed interfaces.
 #
 # Structure:
 #   - protocols/       Protocol bundle definitions
@@ -9,16 +9,6 @@
 #     - pcie.py        PCIe protocol
 #     - sata.py        SATA protocol
 #     - sfp.py         SFP/QSFP protocol
-#   - examples/        Example designs
-#     - protocols/     Protocol-specific examples
-#       - jesd204/     JESD204 protocol examples
-#       - memory/      Memory protocol examples
-#       - pcie/        PCIe protocol examples
-#       - sata/        SATA protocol examples
-#       - sfp/         SFP protocol examples
-#   - common/          Shared infrastructure
-#     - example_board.py      Board and stackup definitions
-#     - example_components.py Blocking caps, pull-up resistors
 
 # Re-export protocols for convenience
 from .protocols import (
