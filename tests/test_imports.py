@@ -37,12 +37,14 @@ def test_memory_subpackage():
     """Memory protocols subpackage imports."""
     from jitx_protocols_ext.protocols.memory import (
         DDR4,
+        DDR5,
         GDDR7,
         LPDDR4,
         LPDDR5,
     )
 
     assert DDR4 is not None
+    assert DDR5 is not None
     assert GDDR7 is not None
     assert LPDDR4 is not None
     assert LPDDR5 is not None

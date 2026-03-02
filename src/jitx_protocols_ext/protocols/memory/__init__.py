@@ -22,6 +22,32 @@ from .ddr4 import (
     width_to_int,
     width_to_lane_count,
 )
+from .ddr5 import (
+    DDR5,
+    DDR5CAChannel,
+    DDR5CAConstraint,
+    DDR5CAConstraintParams,
+    DDR5Constraint,
+    DDR5DataCAConstraint,
+    DDR5DataCAConstraintParams,
+    DDR5DataChannel,
+    DDR5DataConstraint,
+    DDR5DataConstraintParams,
+    DDR5Impedances,
+    DDR5Rank,
+    DDR5Topology,
+    DDR5Width,
+    connect_ddr5,
+)
+from .ddr5 import (
+    rank_to_int as ddr5_rank_to_int,
+)
+from .ddr5 import (
+    width_to_int as ddr5_width_to_int,
+)
+from .ddr5 import (
+    width_to_lane_count as ddr5_width_to_lane_count,
+)
 from .gddr7 import (
     GDDR7,
     GDDR7Constraint,
@@ -72,6 +98,8 @@ from .lpddr5 import (
 __all__ = [
     # DDR4
     "DDR4",
+    # DDR5
+    "DDR5",
     # GDDR7
     "GDDR7",
     # LPDDR4
@@ -92,6 +120,19 @@ __all__ = [
     "DDR4Rank",
     "DDR4Topology",
     "DDR4Width",
+    "DDR5CAChannel",
+    "DDR5CAConstraint",
+    "DDR5CAConstraintParams",
+    "DDR5Constraint",
+    "DDR5DataCAConstraint",
+    "DDR5DataCAConstraintParams",
+    "DDR5DataChannel",
+    "DDR5DataConstraint",
+    "DDR5DataConstraintParams",
+    "DDR5Impedances",
+    "DDR5Rank",
+    "DDR5Topology",
+    "DDR5Width",
     "GDDR7Constraint",
     "GDDR7ConstraintParams",
     "GDDR7ControlChannel",
@@ -110,9 +151,13 @@ __all__ = [
     "LPDDR5Rank",
     "LPDDR5Width",
     "connect_ddr4",
+    "connect_ddr5",
     "connect_gddr7",
     "connect_lpddr4",
     "connect_lpddr5",
+    "ddr5_rank_to_int",
+    "ddr5_width_to_int",
+    "ddr5_width_to_lane_count",
     "lpddr4_rank_to_int",
     "lpddr4_width_to_int",
     "lpddr5_num_channels",
