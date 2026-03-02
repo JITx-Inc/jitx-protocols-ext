@@ -32,7 +32,7 @@ from jitxlib.landpatterns.silkscreen.marker import Pad1Marker
 from jitxlib.landpatterns.silkscreen.outlines import SilkscreenOutline
 from jitxlib.symbols.box import BoxSymbol
 
-from ....protocols.memory.gddr7 import GDDR7
+from jitx_protocols_ext.protocols.memory.gddr7 import GDDR7
 
 
 class SplitBGABase(

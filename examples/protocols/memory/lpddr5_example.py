@@ -12,8 +12,8 @@ This example demonstrates:
 from jitx import Design, Net
 from jitx.circuit import Circuit
 
-from ....common.example_board import ExampleBoard, ExampleSubstrate
-from ....protocols.memory.lpddr5 import LPDDR5, LPDDR5Constraint, LPDDR5Rank, LPDDR5Width
+from examples.common.example_board import ExampleBoard, ExampleSubstrate
+from jitx_protocols_ext.protocols.memory.lpddr5 import LPDDR5, LPDDR5Constraint, LPDDR5Rank, LPDDR5Width
 from .lpddr5_components import LPDDR5ControllerCircuit
 from .MT62F4G32D8DV_026_AIT_B import LPDDR5MemoryCircuit
 

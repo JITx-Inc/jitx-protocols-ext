@@ -459,7 +459,7 @@ class DDR4DataConstraint(SignalConstraint["DDR4DataChannel"]):
 
             # Add DM_n topology for this byte lane
             dm_topo = Topology(src.DM_n[i], dst.DM_n[i])
-            all_data_topos = dq_topos + [dm_topo]
+            all_data_topos = [*dq_topos, dm_topo]
 
             # Apply DQ/DM_n to DQS timing constraint
             self.add(
