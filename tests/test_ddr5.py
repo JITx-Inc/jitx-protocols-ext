@@ -100,8 +100,6 @@ class TestDDR5CAChannel:
         assert hasattr(ch, "CK")
         assert hasattr(ch, "CA")
         assert hasattr(ch, "CS_n")
-        assert hasattr(ch, "CKE")
-        assert hasattr(ch, "ODT")
         assert hasattr(ch, "RESET_n")
         assert hasattr(ch, "ALERT_n")
 
