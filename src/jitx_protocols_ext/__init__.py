@@ -4,7 +4,7 @@
 #
 # Structure:
 #   - protocols/       Protocol bundle definitions
-#     - memory/        Memory protocols (DDR4, LPDDR4, LPDDR5, GDDR7)
+#     - memory/        Memory protocols (DDR4, DDR5, LPDDR4, LPDDR5, GDDR7)
 #     - jesd204.py     JESD204B/C protocol
 #     - pcie.py        PCIe protocol
 #     - sata.py        SATA protocol
@@ -48,6 +48,8 @@ from .protocols import (
 from .protocols.memory import (
     # DDR4
     DDR4,
+    # DDR5
+    DDR5,
     # GDDR7
     GDDR7,
     # LPDDR4
@@ -58,6 +60,10 @@ from .protocols.memory import (
     DDR4Impedances,
     DDR4Rank,
     DDR4Width,
+    DDR5Constraint,
+    DDR5Impedances,
+    DDR5Rank,
+    DDR5Width,
     GDDR7Constraint,
     GDDR7Impedances,
     LPDDR4Constraint,
@@ -69,6 +75,7 @@ from .protocols.memory import (
     LPDDR5Rank,
     LPDDR5Width,
     connect_ddr4,
+    connect_ddr5,
     connect_gddr7,
     connect_lpddr4,
     connect_lpddr5,
@@ -77,6 +84,8 @@ from .protocols.memory import (
 __all__ = [
     # DDR4
     "DDR4",
+    # DDR5
+    "DDR5",
     # GDDR7
     "GDDR7",
     # JESD204
@@ -96,6 +105,10 @@ __all__ = [
     "DDR4Impedances",
     "DDR4Rank",
     "DDR4Width",
+    "DDR5Constraint",
+    "DDR5Impedances",
+    "DDR5Rank",
+    "DDR5Width",
     "GDDR7Constraint",
     "GDDR7Impedances",
     "JESD204Constraint",
@@ -123,6 +136,7 @@ __all__ = [
     "SFPStandard",
     "SFP_Lane",
     "connect_ddr4",
+    "connect_ddr5",
     "connect_gddr7",
     "connect_lpddr4",
     "connect_lpddr5",
