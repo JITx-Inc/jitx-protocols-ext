@@ -1,8 +1,8 @@
-"""DDR5 x8 Protocol Example
+"""DDR5 x16 Protocol Example
 
-Demonstrates DDR5 x8 memory-to-controller connection using the 82-ball
-SDRAM component with full signal integrity constraints applied via
-DDR5Constraint.constrain_topology().
+Demonstrates DDR5 x16 memory-to-controller connection using the 102-ball
+SDRAM component with dual byte-lane topology and full SI constraints applied
+via DDR5Constraint.constrain_topology().
 """
 
 from jitx import Design, Net
@@ -16,14 +16,15 @@ from jitx_protocols_ext.protocols.memory.ddr5 import (
     DDR5Width,
 )
 
-from .ddr5_components import DDR5ControllerCircuit, DDR5MemoryCircuit
+from .ddr5_components import DDR5ControllerCircuit_x16, DDR5MemoryCircuit_x16
 
 
-class DDR5ExampleCircuit(Circuit):
-    """DDR5 x8 Example Circuit
+class DDR5x16ExampleCircuit(Circuit):
+    """DDR5 x16 Example Circuit
 
-    Point-to-point DDR5 x8 memory-to-controller with SI constraints:
+    Point-to-point DDR5 x16 memory-to-controller with SI constraints:
     - 80 Ohm CK/DQS, 40 Ohm DQ/CA impedances
+    - 2 byte lanes (upper + lower), each with DQS and DMI
     - +/-0.5ps DQS/CK intra-pair skew
     - +/-2.5ps DQ-to-DQS, +/-15ps CA-to-CK timing
     - 5 dB max insertion loss
@@ -33,16 +34,16 @@ class DDR5ExampleCircuit(Circuit):
     VDD = Net(name="VDD")
 
     def __init__(self):
-        self.memory = DDR5MemoryCircuit()
-        self.controller = DDR5ControllerCircuit()
+        self.memory = DDR5MemoryCircuit_x16()
+        self.controller = DDR5ControllerCircuit_x16()
 
         self.power_nets = [
             self.GND + self.memory.pwr.Vn + self.controller.pwr.Vn,
             self.VDD + self.memory.pwr.Vp + self.controller.pwr.Vp,
         ]
 
-        self.constraint = DDR5Constraint(width=DDR5Width.x8, rank=DDR5Rank.SingleRank)
-        ctrl_io = self.controller.require(DDR5(DDR5Width.x8, DDR5Rank.SingleRank))
+        self.constraint = DDR5Constraint(width=DDR5Width.x16, rank=DDR5Rank.SingleRank)
+        ctrl_io = self.controller.require(DDR5(DDR5Width.x16, DDR5Rank.SingleRank))
         mem_io = self.memory.io
 
         topos = []
@@ -63,9 +64,9 @@ class DDR5ExampleCircuit(Circuit):
         self.ddr5_topos = topos
 
 
-class DDR5ExampleDesign(Design):
-    """Complete DDR5 x8 Example Design"""
+class DDR5x16ExampleDesign(Design):
+    """Complete DDR5 x16 Example Design"""
 
     substrate = ExampleSubstrate()
-    circuit = DDR5ExampleCircuit()
+    circuit = DDR5x16ExampleCircuit()
     board = ExampleBoard()

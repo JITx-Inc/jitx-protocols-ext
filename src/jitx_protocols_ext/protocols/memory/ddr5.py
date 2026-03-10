@@ -117,7 +117,7 @@ def rank_to_int(rank: DDR5Rank) -> int:
         rank: DDR5 rank enum
 
     Returns:
-        Number of CS_n (and CKE, ODT) signals
+        Number of CS_n signals
     """
     return rank.value
 
@@ -185,15 +185,17 @@ class DDR5CAChannel(Port):
     DDR5 uses a unified 14-bit CA bus with PODL signaling, replacing
     DDR4's separate A/BA/BG/ACT_n/PAR signals.
 
+    DDR5 DRAMs do not have dedicated CKE or ODT pins (unlike DDR4).
+    Clock enable is handled via MPC commands on the CA bus, and ODT is
+    controlled via mode registers (MR32/MR33) and the CA_ODT strap pin.
+
     Args:
-        rank: Rank configuration (determines CS_n, CKE, ODT counts)
+        rank: Rank configuration (determines CS_n count)
 
     Attributes:
         CK: Clock differential pair
         CA: Command/Address bus (14 bits: CA[13:0])
-        CS_n: Chip select (active low)
-        CKE: Clock enable
-        ODT: On-die termination
+        CS_n: Chip select (active low, 1 per rank)
         RESET_n: Reset (active low)
         ALERT_n: Alert (active low)
     """
@@ -207,12 +209,6 @@ class DDR5CAChannel(Port):
     CS_n: Sequence[Port]
     "Chip select (active low)"
 
-    CKE: Sequence[Port]
-    "Clock enable"
-
-    ODT: Sequence[Port]
-    "On-die termination"
-
     RESET_n = Port()
     "Reset (active low)"
 
@@ -225,8 +221,6 @@ class DDR5CAChannel(Port):
         self.CK = DiffPair()
         self.CA = tuple(Port() for _ in range(14))
         self.CS_n = tuple(Port() for _ in range(rank_count))
-        self.CKE = tuple(Port() for _ in range(rank_count))
-        self.ODT = tuple(Port() for _ in range(rank_count))
 
 
 class DDR5(Port):
@@ -240,7 +234,7 @@ class DDR5(Port):
 
     Attributes:
         data: Data channel (DQ, DQS, DMI)
-        ca: Command/Address channel (CK, CA, CS_n, CKE, ODT, RESET_n, ALERT_n)
+        ca: Command/Address channel (CK, CA, CS_n, RESET_n, ALERT_n)
     """
 
     data: DDR5DataChannel
@@ -469,7 +463,7 @@ class DDR5CAConstraint(SignalConstraint["DDR5CAChannel"]):
         - CK differential pair (intra-pair skew)
         - All CA signals relative to CK
         - CA signals relative to each other
-        - Control signals (CS_n, CKE, ODT, RESET_n, ALERT_n) relative to CK
+        - Control signals (CS_n, RESET_n, ALERT_n) relative to CK
         - Single-ended routing structure and loss
 
         Args:
@@ -506,15 +500,9 @@ class DDR5CAConstraint(SignalConstraint["DDR5CAChannel"]):
         for src_ca, dst_ca in zip(src.CA, dst.CA, strict=True):
             constrain_ca_signal(src_ca, dst_ca)
 
-        # Control signals relative to CK (these define the CA group reference)
-        for src_cke, dst_cke in zip(src.CKE, dst.CKE, strict=True):
-            constrain_ca_signal(src_cke, dst_cke)
-
+        # Control signals relative to CK
         for src_cs, dst_cs in zip(src.CS_n, dst.CS_n, strict=True):
             constrain_ca_signal(src_cs, dst_cs)
-
-        for src_odt, dst_odt in zip(src.ODT, dst.ODT, strict=True):
-            constrain_ca_signal(src_odt, dst_odt)
 
         constrain_ca_signal(src.RESET_n, dst.RESET_n)
         constrain_ca_signal(src.ALERT_n, dst.ALERT_n)
@@ -622,7 +610,7 @@ class DDR5Constraint(SignalConstraint["DDR5"]):
 
         Applies:
         - Data channel constraints (DQ, DQS, DMI)
-        - CA channel constraints (CK, CA, CS_n, CKE, ODT, RESET_n, ALERT_n)
+        - CA channel constraints (CK, CA, CS_n, RESET_n, ALERT_n)
         - Cross-channel CK-to-DQS timing relationship
 
         Args:
