@@ -3,7 +3,7 @@
 Translation using Micron MT62F4G32D8DV-026_AIT_B memory component.
 
 This example demonstrates:
-1. LPDDR5 memory component with direct LPDDR5 port (not Provide)
+1. LPDDR5 memory component with Provide() for pin optionality
 2. Generic controller component with Provide() for pin optionality
 3. LPDDR5 x32 DualRank configuration
 4. Signal integrity constraints from LPDDR5Constraint
@@ -13,7 +13,13 @@ from jitx import Design, Net
 from jitx.circuit import Circuit
 
 from examples.common.example_board import ExampleBoard, ExampleSubstrate
-from jitx_protocols_ext.protocols.memory.lpddr5 import LPDDR5, LPDDR5Constraint, LPDDR5Rank, LPDDR5Width
+from jitx_protocols_ext.protocols.memory.lpddr5 import (
+    LPDDR5,
+    LPDDR5Constraint,
+    LPDDR5Rank,
+    LPDDR5Width,
+)
+
 from .lpddr5_components import LPDDR5ControllerCircuit
 from .MT62F4G32D8DV_026_AIT_B import LPDDR5MemoryCircuit
 
@@ -44,23 +50,32 @@ class LPDDR5ExampleCircuit(Circuit):
             rank=LPDDR5Rank.DualRank,
         )
 
-        # Power nets
-        self.power_nets = [
-            self.GND + self.memory.pwr.Vn + self.controller.pwr.Vn,
-            self.VDD + self.memory.pwr.Vp + self.controller.pwr.Vp,
-        ]
+        # Power nets — memory has 4 separate rails, all sharing VSS
+        self.GND += self.memory.pwr_vdd1.Vn + self.controller.pwr.Vn
+        self.VDD += self.controller.pwr.Vp
 
-        # Get LPDDR5 ports:
-        # - Controller uses require() since it has Provide
-        # - Memory uses direct io port since it has fixed connections
+        self.VDD1 = Net(name="VDD1")
+        self.VDD1 += self.memory.pwr_vdd1.Vp
+
+        self.VDD2H = Net(name="VDD2H")
+        self.VDD2H += self.memory.pwr_vdd2h.Vp
+
+        self.VDD2L = Net(name="VDD2L")
+        self.VDD2L += self.memory.pwr_vdd2l.Vp
+
+        self.VDDQ = Net(name="VDDQ")
+        self.VDDQ += self.memory.pwr_vddq.Vp
+
+        # Get LPDDR5 ports via require() — both use Provide
         ctrl_io = self.controller.require(LPDDR5(LPDDR5Width.x32, LPDDR5Rank.DualRank))
-        mem_io = self.memory.io
+        mem_io = self.memory.require(LPDDR5(LPDDR5Width.x32, LPDDR5Rank.DualRank))
 
         # Connect LPDDR5 interface with constraints
         topos = []
 
         with self.constraint.constrain_topology(
-            ctrl_io, mem_io  # Controller -> Memory
+            ctrl_io,
+            mem_io,  # Controller -> Memory
         ) as (src, dst):
             # Reset signal (shared)
             topos.append([src.reset_n >> dst.reset_n])

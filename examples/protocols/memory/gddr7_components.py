@@ -8,7 +8,7 @@ that exactly match the industry standard GDDR7 specification.
 
 from collections.abc import Iterable
 
-from jitx import PadMapping
+from jitx import Net, PadMapping
 from jitx.circuit import Circuit
 from jitx.common import Power
 from jitx.component import Component
@@ -477,50 +477,64 @@ class GDDR7MemoryComponent(Component):
 
 
 class GDDR7MemoryCircuit(Circuit):
-    """GDDR7 Memory Circuit
+    """GDDR7 Memory Circuit with Provide() Pattern
 
-    Exact translation of mem-device from jsl/examples/protocols/memory/gddr7/gddr7-src.stanza.
+    Wraps GDDR7MemoryComponent with Provide() for GDDR7 interface.
     Maps GDDR7 bundle to memory component pins.
     """
 
-    io = GDDR7()
-    pwr = Power()
+    pwr_vdd = Power()
+    pwr_vddq = Power()
+    pwr_vpp = Power()
 
     def __init__(self):
         self.mem = GDDR7MemoryComponent()
 
-        topos = []
+        # Power rail wiring — all rails share VSS ground
+        self.vss_net = Net(
+            [self.pwr_vdd.Vn, self.pwr_vddq.Vn, self.pwr_vpp.Vn, *self.mem.VSS],
+            name="VSS",
+        )
+        self.vdd_net = Net([self.pwr_vdd.Vp, *self.mem.VDD], name="VDD")
+        self.vddq_net = Net([self.pwr_vddq.Vp, *self.mem.VDDQ], name="VDDQ")
+        self.vpp_net = Net([self.pwr_vpp.Vp, *self.mem.VPP], name="VPP")
 
-        # Map each of the 4 data channels - exact mapping from Stanza
+        self._gddr7_provide = Provide(GDDR7()).one_of(lambda b: [self._create_gddr7_mapping(b)])
+
+    def _create_gddr7_mapping(self, b: GDDR7) -> dict:
+        """Create mapping from GDDR7 bundle to memory component pins"""
+        mapping: dict = {}
+
+        # Map each of the 4 data channels
         for i in range(4):
             # DQ signals (10 per channel)
             for j in range(10):
-                topos.append(self.io.data[i].DQ[j] >> self.mem.DQp[j][i])
+                mapping[b.data[i].DQ[j]] = self.mem.DQp[j][i]
 
             # RCK differential pair
-            topos.append(self.io.data[i].RCK.p >> self.mem.RCK_t[i])
-            topos.append(self.io.data[i].RCK.n >> self.mem.RCK_c[i])
+            mapping[b.data[i].RCK.p] = self.mem.RCK_t[i]
+            mapping[b.data[i].RCK.n] = self.mem.RCK_c[i]
 
             # WCK differential pair
-            topos.append(self.io.data[i].WCK.p >> self.mem.WCK_t[i])
-            topos.append(self.io.data[i].WCK.n >> self.mem.WCK_c[i])
+            mapping[b.data[i].WCK.p] = self.mem.WCK_t[i]
+            mapping[b.data[i].WCK.n] = self.mem.WCK_c[i]
 
             # DQE
-            topos.append(self.io.data[i].DQE >> self.mem.DQE[i])
+            mapping[b.data[i].DQE] = self.mem.DQE[i]
 
             # ERR
-            topos.append(self.io.data[i].ERR >> self.mem.ERR[i])
+            mapping[b.data[i].ERR] = self.mem.ERR[i]
 
             # CA signals (5 per channel)
             for j in range(5):
-                topos.append(self.io.data[i].CA[j] >> self.mem.CA[j][i])
+                mapping[b.data[i].CA[j]] = self.mem.CA[j][i]
 
         # Control signals
-        topos.append(self.io.control.RESET_n >> self.mem.RESET_n)
-        topos.append(self.io.control.ZQ_AB >> self.mem.ZQ_AB)
-        topos.append(self.io.control.ZQ_CD >> self.mem.ZQ_CD)
+        mapping[b.control.RESET_n] = self.mem.RESET_n
+        mapping[b.control.ZQ_AB] = self.mem.ZQ_AB
+        mapping[b.control.ZQ_CD] = self.mem.ZQ_CD
 
-        self.topos = topos
+        return mapping
 
 
 class GDDR7ICBGALandpattern(BGA):
@@ -569,9 +583,7 @@ def _signal_ball(row: int, col: int) -> bool:
     """
     if row == 0 or row == 29 or col == 0 or col == 29:
         return True
-    if (row * 30 + col + row % 2) % 2 == 0:
-        return True
-    return False
+    return (row * 30 + col + row % 2) % 2 == 0
 
 
 # Reduced alphabet for BGA row naming (no I, O, Q, S, X, Z per JEDEC)
@@ -660,9 +672,7 @@ class GDDR7ICCircuit(Circuit):
 
         # Provide a GDDR7 interface using the generic P pins
         # This is equivalent to Stanza's "supports gddr7()"
-        self.gddr7_provide = Provide(GDDR7()).one_of(
-            lambda b: [self._create_gddr7_mapping(b)]
-        )
+        self.gddr7_provide = Provide(GDDR7()).one_of(lambda b: [self._create_gddr7_mapping(b)])
 
     def _create_gddr7_mapping(self, b: GDDR7) -> dict:
         """Create mapping from GDDR7 bundle signals to IC generic pins.
