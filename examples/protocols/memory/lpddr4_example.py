@@ -4,7 +4,7 @@ Translation of lpddr4_demo Stanza project to Python.
 
 This example demonstrates:
 1. LPDDR4 memory-to-controller connection (x32 = 2 x16 channels)
-2. Memory component with direct LPDDR4 port
+2. Memory component with Provide() for pin optionality
 3. Controller component with Provide() for pin optionality
 4. Signal integrity constraints from LPDDR4Constraint
 """
@@ -13,7 +13,13 @@ from jitx import Design, Net
 from jitx.circuit import Circuit
 
 from examples.common.example_board import ExampleBoard, ExampleSubstrate
-from jitx_protocols_ext.protocols.memory.lpddr4 import LPDDR4, LPDDR4Constraint, LPDDR4Rank, LPDDR4Width
+from jitx_protocols_ext.protocols.memory.lpddr4 import (
+    LPDDR4,
+    LPDDR4Constraint,
+    LPDDR4Rank,
+    LPDDR4Width,
+)
+
 from .lpddr4_components import LPDDR4ControllerCircuit, LPDDR4MemoryCircuit
 
 
@@ -44,17 +50,22 @@ class LPDDR4ExampleCircuit(Circuit):
             rank=LPDDR4Rank.Rank2,
         )
 
-        # Connect power
-        self.power_nets = [
-            self.GND + self.memory.pwr.Vn + self.controller.pwr.Vn,
-            self.VDD + self.memory.pwr.Vp + self.controller.pwr.Vp,
-        ]
+        # Power nets — memory has 3 separate rails, all sharing VSS
+        self.GND += self.memory.pwr_vdd1.Vn + self.controller.pwr.Vn
+        self.VDD += self.controller.pwr.Vp
 
-        # Get LPDDR4 ports:
-        # - Controller uses require() since it has Provide
-        # - Memory uses direct io port since it has fixed connections
+        self.VDD1 = Net(name="VDD1")
+        self.VDD1 += self.memory.pwr_vdd1.Vp
+
+        self.VDD2 = Net(name="VDD2")
+        self.VDD2 += self.memory.pwr_vdd2.Vp
+
+        self.VDDQ = Net(name="VDDQ")
+        self.VDDQ += self.memory.pwr_vddq.Vp
+
+        # Get LPDDR4 ports via require() — both use Provide
         ctrl_io = self.controller.require(LPDDR4(LPDDR4Width.x32, LPDDR4Rank.Rank2))
-        mem_io = self.memory.io
+        mem_io = self.memory.require(LPDDR4(LPDDR4Width.x32, LPDDR4Rank.Rank2))
 
         # Connect LPDDR4 interface with constraints
         # All connections must be directly in __init__ (not in helper method)

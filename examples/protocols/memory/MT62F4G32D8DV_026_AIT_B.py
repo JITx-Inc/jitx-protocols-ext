@@ -5,7 +5,7 @@ Translation of MT62F4G32D8DV-026_AIT_B.stanza from JITX Stanza component library
 16GB LPDDR5X SDRAM, 7500Mbps, 315-ball LFBGA, Automotive Grade
 """
 
-from jitx import PadMapping
+from jitx import Net, PadMapping, Provide
 from jitx.circuit import Circuit
 from jitx.common import Power
 from jitx.component import Component
@@ -486,9 +486,9 @@ class MT62F4G32D8DV_026_AIT_B(Component):
 
 
 class LPDDR5MemoryCircuit(Circuit):
-    """LPDDR5 Memory Module
+    """LPDDR5 Memory Module with Provide() Pattern
 
-    Wraps MT62F4G32D8DV_026_AIT_B component with direct LPDDR5 port.
+    Wraps MT62F4G32D8DV_026_AIT_B component with Provide() for LPDDR5 interface.
     Uses LPDDR5 x32 DualRank configuration.
 
     Port mapping:
@@ -498,81 +498,113 @@ class LPDDR5MemoryCircuit(Circuit):
     - d[1][1]: Channel B, Lane 1 (DQ_B[8-15])
     """
 
-    io = LPDDR5(LPDDR5Width.x32, LPDDR5Rank.DualRank)
-    pwr = Power()
+    pwr_vdd1 = Power()
+    pwr_vdd2h = Power()
+    pwr_vdd2l = Power()
+    pwr_vddq = Power()
     zq = Port()
 
     def __init__(self):
         self.mem = MT62F4G32D8DV_026_AIT_B()
 
-        topos = []
+        # Power rail wiring — all rails share VSS ground
+        self.vss_net = Net(
+            [
+                self.pwr_vdd1.Vn,
+                self.pwr_vdd2h.Vn,
+                self.pwr_vdd2l.Vn,
+                self.pwr_vddq.Vn,
+                *self.mem.VSS,
+            ],
+            name="VSS",
+        )
 
-        # Reset signal
-        topos.append(self.io.reset_n >> self.mem.RESET_N)
+        # VDD1 — core supply (1.8V)
+        self.vdd1_net = Net([self.pwr_vdd1.Vp, *self.mem.VDD1], name="VDD1")
 
-        # ZQ calibration (not in LPDDR5 bundle) - use + since not part of SI topology
+        # VDD2H — I/O supply high (1.05V for LPDDR5X)
+        self.vdd2h_net = Net([self.pwr_vdd2h.Vp, *self.mem.VDD2H], name="VDD2H")
+
+        # VDD2L — I/O supply low (0.5V)
+        self.vdd2l_net = Net([self.pwr_vdd2l.Vp, *self.mem.VDD2L], name="VDD2L")
+
+        # VDDQ — DQ I/O supply (0.5V)
+        self.vddq_net = Net([self.pwr_vddq.Vp, *self.mem.VDDQ], name="VDDQ")
+
+        # ZQ calibration (not in LPDDR5 bundle)
         self.zq_net = self.zq + self.mem.ZQ_A
+
+        self._lpddr5_provide = Provide(LPDDR5(LPDDR5Width.x32, LPDDR5Rank.DualRank)).one_of(
+            lambda b: [self._create_lpddr5_mapping(b)]
+        )
+
+    def _create_lpddr5_mapping(self, b: LPDDR5) -> dict:
+        """Create mapping from LPDDR5 bundle to memory component pins"""
+        mapping: dict = {}
+
+        # Reset
+        mapping[b.reset_n] = self.mem.RESET_N
 
         # ======= Channel 0 (A) =======
         # CK
-        topos.append(self.io.ck[0].p >> self.mem.CK_t_A)
-        topos.append(self.io.ck[0].n >> self.mem.CK_c_A)
+        mapping[b.ck[0].p] = self.mem.CK_t_A
+        mapping[b.ck[0].n] = self.mem.CK_c_A
 
         # CS (2 ranks)
-        topos.append(self.io.cs[0][0] >> self.mem.CS_A[0])
-        topos.append(self.io.cs[0][1] >> self.mem.CS_A[1])
+        mapping[b.cs[0][0]] = self.mem.CS_A[0]
+        mapping[b.cs[0][1]] = self.mem.CS_A[1]
 
         # CA (7 bits)
         for i in range(7):
-            topos.append(self.io.ca[0][i] >> self.mem.CA_A[i])
+            mapping[b.ca[0][i]] = self.mem.CA_A[i]
 
         # Data Lane 0: DQ_A[0-7], WCK0, RDQS0, DMI0
         for i in range(8):
-            topos.append(self.io.d[0][0].dq[i] >> self.mem.DQ_A[i])
-        topos.append(self.io.d[0][0].wck.p >> self.mem.WCK_t_A[0])
-        topos.append(self.io.d[0][0].wck.n >> self.mem.WCK_c_A[0])
-        topos.append(self.io.d[0][0].rdqs.p >> self.mem.RDQS_t_A[0])
-        topos.append(self.io.d[0][0].rdqs.n >> self.mem.RDQS_c_A[0])
-        topos.append(self.io.d[0][0].dmi >> self.mem.DMI_A[0])
+            mapping[b.d[0][0].dq[i]] = self.mem.DQ_A[i]
+        mapping[b.d[0][0].wck.p] = self.mem.WCK_t_A[0]
+        mapping[b.d[0][0].wck.n] = self.mem.WCK_c_A[0]
+        mapping[b.d[0][0].rdqs.p] = self.mem.RDQS_t_A[0]
+        mapping[b.d[0][0].rdqs.n] = self.mem.RDQS_c_A[0]
+        mapping[b.d[0][0].dmi] = self.mem.DMI_A[0]
 
         # Data Lane 1: DQ_A[8-15], WCK1, RDQS1, DMI1
         for i in range(8):
-            topos.append(self.io.d[0][1].dq[i] >> self.mem.DQ_A[8 + i])
-        topos.append(self.io.d[0][1].wck.p >> self.mem.WCK_t_A[1])
-        topos.append(self.io.d[0][1].wck.n >> self.mem.WCK_c_A[1])
-        topos.append(self.io.d[0][1].rdqs.p >> self.mem.RDQS_t_A[1])
-        topos.append(self.io.d[0][1].rdqs.n >> self.mem.RDQS_c_A[1])
-        topos.append(self.io.d[0][1].dmi >> self.mem.DMI_A[1])
+            mapping[b.d[0][1].dq[i]] = self.mem.DQ_A[8 + i]
+        mapping[b.d[0][1].wck.p] = self.mem.WCK_t_A[1]
+        mapping[b.d[0][1].wck.n] = self.mem.WCK_c_A[1]
+        mapping[b.d[0][1].rdqs.p] = self.mem.RDQS_t_A[1]
+        mapping[b.d[0][1].rdqs.n] = self.mem.RDQS_c_A[1]
+        mapping[b.d[0][1].dmi] = self.mem.DMI_A[1]
 
         # ======= Channel 1 (B) =======
         # CK
-        topos.append(self.io.ck[1].p >> self.mem.CK_t_B)
-        topos.append(self.io.ck[1].n >> self.mem.CK_c_B)
+        mapping[b.ck[1].p] = self.mem.CK_t_B
+        mapping[b.ck[1].n] = self.mem.CK_c_B
 
         # CS (2 ranks)
-        topos.append(self.io.cs[1][0] >> self.mem.CS_B[0])
-        topos.append(self.io.cs[1][1] >> self.mem.CS_B[1])
+        mapping[b.cs[1][0]] = self.mem.CS_B[0]
+        mapping[b.cs[1][1]] = self.mem.CS_B[1]
 
         # CA (7 bits)
         for i in range(7):
-            topos.append(self.io.ca[1][i] >> self.mem.CA_B[i])
+            mapping[b.ca[1][i]] = self.mem.CA_B[i]
 
         # Data Lane 0: DQ_B[0-7], WCK0, RDQS0, DMI0
         for i in range(8):
-            topos.append(self.io.d[1][0].dq[i] >> self.mem.DQ_B[i])
-        topos.append(self.io.d[1][0].wck.p >> self.mem.WCK_t_B[0])
-        topos.append(self.io.d[1][0].wck.n >> self.mem.WCK_c_B[0])
-        topos.append(self.io.d[1][0].rdqs.p >> self.mem.RDQS_t_B[0])
-        topos.append(self.io.d[1][0].rdqs.n >> self.mem.RDQS_c_B[0])
-        topos.append(self.io.d[1][0].dmi >> self.mem.DMI_B[0])
+            mapping[b.d[1][0].dq[i]] = self.mem.DQ_B[i]
+        mapping[b.d[1][0].wck.p] = self.mem.WCK_t_B[0]
+        mapping[b.d[1][0].wck.n] = self.mem.WCK_c_B[0]
+        mapping[b.d[1][0].rdqs.p] = self.mem.RDQS_t_B[0]
+        mapping[b.d[1][0].rdqs.n] = self.mem.RDQS_c_B[0]
+        mapping[b.d[1][0].dmi] = self.mem.DMI_B[0]
 
         # Data Lane 1: DQ_B[8-15], WCK1, RDQS1, DMI1
         for i in range(8):
-            topos.append(self.io.d[1][1].dq[i] >> self.mem.DQ_B[8 + i])
-        topos.append(self.io.d[1][1].wck.p >> self.mem.WCK_t_B[1])
-        topos.append(self.io.d[1][1].wck.n >> self.mem.WCK_c_B[1])
-        topos.append(self.io.d[1][1].rdqs.p >> self.mem.RDQS_t_B[1])
-        topos.append(self.io.d[1][1].rdqs.n >> self.mem.RDQS_c_B[1])
-        topos.append(self.io.d[1][1].dmi >> self.mem.DMI_B[1])
+            mapping[b.d[1][1].dq[i]] = self.mem.DQ_B[8 + i]
+        mapping[b.d[1][1].wck.p] = self.mem.WCK_t_B[1]
+        mapping[b.d[1][1].wck.n] = self.mem.WCK_c_B[1]
+        mapping[b.d[1][1].rdqs.p] = self.mem.RDQS_t_B[1]
+        mapping[b.d[1][1].rdqs.n] = self.mem.RDQS_c_B[1]
+        mapping[b.d[1][1].dmi] = self.mem.DMI_B[1]
 
-        self.topos = topos
+        return mapping

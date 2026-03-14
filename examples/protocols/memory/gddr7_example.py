@@ -14,6 +14,7 @@ from jitx.circuit import Circuit
 
 from examples.common.example_board import ExampleBoard, ExampleSubstrate
 from jitx_protocols_ext.protocols.memory.gddr7 import GDDR7, GDDR7Constraint
+
 from .gddr7_components import GDDR7ICCircuit, GDDR7MemoryCircuit
 
 
@@ -44,11 +45,18 @@ class GDDR7ExampleCircuit(Circuit):
         # GDDR7 constraint setup
         self.constraint = GDDR7Constraint()
 
-        # Power nets
-        self.power_nets = [
-            self.GND + self.dut1.pwr.Vn + self.dut2.pwr.Vn,
-            self.VDD + self.dut1.pwr.Vp + self.dut2.pwr.Vp,
-        ]
+        # Power nets — memory has 3 separate rails, all sharing VSS
+        self.GND += self.dut1.pwr_vdd.Vn + self.dut2.pwr.Vn
+        self.VDD += self.dut2.pwr.Vp
+
+        self.MEM_VDD = Net(name="MEM_VDD")
+        self.MEM_VDD += self.dut1.pwr_vdd.Vp
+
+        self.MEM_VDDQ = Net(name="MEM_VDDQ")
+        self.MEM_VDDQ += self.dut1.pwr_vddq.Vp
+
+        self.MEM_VPP = Net(name="MEM_VPP")
+        self.MEM_VPP += self.dut1.pwr_vpp.Vp
 
         # Connect GDDR7 interface with constraints
         self.gddr7_conn = self._setup_gddr7_connection()
@@ -57,12 +65,14 @@ class GDDR7ExampleCircuit(Circuit):
         """Setup GDDR7 connection with constraints"""
         topos = []
 
-        # Get GDDR7 port from IC using require (equivalent to Stanza's require)
+        # Get GDDR7 ports via require() — both use Provide
         ic_io = self.dut2.require(GDDR7())
+        mem_io = self.dut1.require(GDDR7())
 
         # Apply constraints
         with self.constraint.constrain_topology(
-            ic_io, self.dut1.io  # GPU -> Memory
+            ic_io,
+            mem_io,  # GPU -> Memory
         ) as (src, dst):
             # Connect each of the 4 data channels
             for ch_idx in range(4):

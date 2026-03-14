@@ -16,7 +16,7 @@ are JEDEC-standard and apply to any compliant DDR5 SDRAM vendor.
 """
 
 import jitx
-from jitx import PadMapping
+from jitx import Net, PadMapping
 from jitx.circuit import Circuit
 from jitx.common import Power
 from jitx.component import Component
@@ -1022,115 +1022,99 @@ DDR5Memory = DDR5_x4x8_78ball
 
 
 class DDR5MemoryCircuit_x8(Circuit):
-    """DDR5 Memory Circuit wrapping an x8 component with DDR5 bundle IO.
+    """DDR5 x8 Memory Circuit with Provide() Pattern
 
-    Wires the external DDR5 bundle (io) to the internal DRAM component's
-    physical pins, enabling topology connections from the example design
-    to reach the actual BGA pads.
+    Wraps an x8 DDR5 DRAM component with Provide() for DDR5 interface.
     """
 
-    io = DDR5(DDR5Width.x8, DDR5Rank.SingleRank)
-    pwr = Power()
+    pwr_vdd = Power()
+    pwr_vddq = Power()
+    pwr_vpp = Power()
 
     def __init__(self, component_cls: type = DDR5_x4x8_82ball):
         self.mem = component_cls()
 
-        # -- Power wiring --
-        gnd_net = self.pwr.Vn
-        for p in self.mem.VSS:
-            gnd_net = gnd_net + p
-        self.vss_net = gnd_net
+        # Power rail wiring
+        self.vss_net = Net(
+            [self.pwr_vdd.Vn, self.pwr_vddq.Vn, self.pwr_vpp.Vn, *self.mem.VSS],
+            name="VSS",
+        )
+        self.vdd_net = Net([self.pwr_vdd.Vp, *self.mem.VDD], name="VDD")
+        self.vddq_net = Net([self.pwr_vddq.Vp, *self.mem.VDDQ], name="VDDQ")
+        self.vpp_net = Net([self.pwr_vpp.Vp, *self.mem.VPP], name="VPP")
 
-        vdd_net = self.pwr.Vp
-        for p in self.mem.VDD:
-            vdd_net = vdd_net + p
-        self.vdd_net = vdd_net
+        self._ddr5_provide = Provide(DDR5(DDR5Width.x8, DDR5Rank.SingleRank)).one_of(
+            lambda b: [self._create_ddr5_mapping(b)]
+        )
 
-        vddq_net = self.mem.VDDQ[0]
-        for p in self.mem.VDDQ[1:]:
-            vddq_net = vddq_net + p
-        self.vddq_net = vddq_net
-
-        vpp_net = self.mem.VPP[0]
-        for p in self.mem.VPP[1:]:
-            vpp_net = vpp_net + p
-        self.vpp_net = vpp_net
-
-        # -- Data topology: io bundle >> component pins --
-        # Using >> so SI constraints chain through to BGA pads
-        self.dq_topos = [self.io.data.DQ[i] >> self.mem.DQ[i] for i in range(8)]
-        self.dqs_p_topo = self.io.data.DQS[0].p >> self.mem.DQS_t
-        self.dqs_n_topo = self.io.data.DQS[0].n >> self.mem.DQS_c
-        self.dmi_topo = self.io.data.DMI[0] >> self.mem.DM_n
-
-        # -- CA topology: io bundle >> component pins --
-        self.ck_p_topo = self.io.ca.CK.p >> self.mem.CK_t
-        self.ck_n_topo = self.io.ca.CK.n >> self.mem.CK_c
-        self.ca_topos = [self.io.ca.CA[i] >> self.mem.CA[i] for i in range(14)]
-        self.cs_topo = self.io.ca.CS_n[0] >> self.mem.CS_n
-        self.reset_topo = self.io.ca.RESET_n >> self.mem.RESET_n
-        self.alert_topo = self.io.ca.ALERT_n >> self.mem.ALERT_n
+    def _create_ddr5_mapping(self, b: DDR5) -> dict:
+        """Create mapping from DDR5 bundle to x8 memory component pins"""
+        mapping: dict = {}
+        for i in range(8):
+            mapping[b.data.DQ[i]] = self.mem.DQ[i]
+        mapping[b.data.DQS[0].p] = self.mem.DQS_t
+        mapping[b.data.DQS[0].n] = self.mem.DQS_c
+        mapping[b.data.DMI[0]] = self.mem.DM_n
+        mapping[b.ca.CK.p] = self.mem.CK_t
+        mapping[b.ca.CK.n] = self.mem.CK_c
+        for i in range(14):
+            mapping[b.ca.CA[i]] = self.mem.CA[i]
+        mapping[b.ca.CS_n[0]] = self.mem.CS_n
+        mapping[b.ca.RESET_n] = self.mem.RESET_n
+        mapping[b.ca.ALERT_n] = self.mem.ALERT_n
+        return mapping
 
 
 class DDR5MemoryCircuit_x16(Circuit):
-    """DDR5 Memory Circuit wrapping the x16 102-ball component.
+    """DDR5 x16 Memory Circuit with Provide() Pattern
 
-    Wires the external DDR5 x16 bundle (io) to the internal DRAM component's
-    physical pins. The x16 device has two byte lanes:
-    - Lower byte: DQL[0:7], DQSL_t/c, DML_n  -> bundle DQ[0:7], DQS[0], DMI[0]
-    - Upper byte: DQU[0:7], DQSU_t/c, DMU_n  -> bundle DQ[8:15], DQS[1], DMI[1]
+    Wraps the x16 102-ball DDR5 DRAM component with Provide() for DDR5 interface.
+    Two byte lanes: lower (DQL) and upper (DQU).
     """
 
-    io = DDR5(DDR5Width.x16, DDR5Rank.SingleRank)
-    pwr = Power()
+    pwr_vdd = Power()
+    pwr_vddq = Power()
+    pwr_vpp = Power()
 
     def __init__(self):
         self.mem = DDR5_x16_102ball()
 
-        # -- Power wiring --
-        gnd_net = self.pwr.Vn
-        for p in self.mem.VSS:
-            gnd_net = gnd_net + p
-        self.vss_net = gnd_net
+        # Power rail wiring
+        self.vss_net = Net(
+            [self.pwr_vdd.Vn, self.pwr_vddq.Vn, self.pwr_vpp.Vn, *self.mem.VSS],
+            name="VSS",
+        )
+        self.vdd_net = Net([self.pwr_vdd.Vp, *self.mem.VDD], name="VDD")
+        self.vddq_net = Net([self.pwr_vddq.Vp, *self.mem.VDDQ], name="VDDQ")
+        self.vpp_net = Net([self.pwr_vpp.Vp, *self.mem.VPP], name="VPP")
 
-        vdd_net = self.pwr.Vp
-        for p in self.mem.VDD:
-            vdd_net = vdd_net + p
-        self.vdd_net = vdd_net
+        self._ddr5_provide = Provide(DDR5(DDR5Width.x16, DDR5Rank.SingleRank)).one_of(
+            lambda b: [self._create_ddr5_mapping(b)]
+        )
 
-        vddq_net = self.mem.VDDQ[0]
-        for p in self.mem.VDDQ[1:]:
-            vddq_net = vddq_net + p
-        self.vddq_net = vddq_net
-
-        vpp_net = self.mem.VPP[0]
-        for p in self.mem.VPP[1:]:
-            vpp_net = vpp_net + p
-        self.vpp_net = vpp_net
-
-        # -- Data topology: io bundle >> component pins --
-        # Using >> so SI constraints chain through to BGA pads
-        # Lower byte: DQ[0:7] >> DQL[0:7]
-        self.dq_topos_lower = [self.io.data.DQ[i] >> self.mem.DQL[i] for i in range(8)]
-        # Upper byte: DQ[8:15] >> DQU[0:7]
-        self.dq_topos_upper = [self.io.data.DQ[8 + i] >> self.mem.DQU[i] for i in range(8)]
-        # Lower byte strobe
-        self.dqsl_p_topo = self.io.data.DQS[0].p >> self.mem.DQSL_t
-        self.dqsl_n_topo = self.io.data.DQS[0].n >> self.mem.DQSL_c
-        # Upper byte strobe
-        self.dqsu_p_topo = self.io.data.DQS[1].p >> self.mem.DQSU_t
-        self.dqsu_n_topo = self.io.data.DQS[1].n >> self.mem.DQSU_c
-        # Byte masks
-        self.dml_topo = self.io.data.DMI[0] >> self.mem.DML_n
-        self.dmu_topo = self.io.data.DMI[1] >> self.mem.DMU_n
-
-        # -- CA topology: io bundle >> component pins --
-        self.ck_p_topo = self.io.ca.CK.p >> self.mem.CK_t
-        self.ck_n_topo = self.io.ca.CK.n >> self.mem.CK_c
-        self.ca_topos = [self.io.ca.CA[i] >> self.mem.CA[i] for i in range(14)]
-        self.cs_topo = self.io.ca.CS_n[0] >> self.mem.CS_n
-        self.reset_topo = self.io.ca.RESET_n >> self.mem.RESET_n
-        self.alert_topo = self.io.ca.ALERT_n >> self.mem.ALERT_n
+    def _create_ddr5_mapping(self, b: DDR5) -> dict:
+        """Create mapping from DDR5 bundle to x16 memory component pins"""
+        mapping: dict = {}
+        # Lower byte: DQ[0:7] -> DQL[0:7]
+        for i in range(8):
+            mapping[b.data.DQ[i]] = self.mem.DQL[i]
+        # Upper byte: DQ[8:15] -> DQU[0:7]
+        for i in range(8):
+            mapping[b.data.DQ[8 + i]] = self.mem.DQU[i]
+        mapping[b.data.DQS[0].p] = self.mem.DQSL_t
+        mapping[b.data.DQS[0].n] = self.mem.DQSL_c
+        mapping[b.data.DQS[1].p] = self.mem.DQSU_t
+        mapping[b.data.DQS[1].n] = self.mem.DQSU_c
+        mapping[b.data.DMI[0]] = self.mem.DML_n
+        mapping[b.data.DMI[1]] = self.mem.DMU_n
+        mapping[b.ca.CK.p] = self.mem.CK_t
+        mapping[b.ca.CK.n] = self.mem.CK_c
+        for i in range(14):
+            mapping[b.ca.CA[i]] = self.mem.CA[i]
+        mapping[b.ca.CS_n[0]] = self.mem.CS_n
+        mapping[b.ca.RESET_n] = self.mem.RESET_n
+        mapping[b.ca.ALERT_n] = self.mem.ALERT_n
+        return mapping
 
 
 DDR5MemoryCircuit = DDR5MemoryCircuit_x8

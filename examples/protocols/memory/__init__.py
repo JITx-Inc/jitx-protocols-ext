@@ -24,6 +24,7 @@ from .lpddr4_components import K4FBE3D4HB_KHCL, LPDDR4ControllerCircuit, LPDDR4M
 from .lpddr4_example import LPDDR4ExampleCircuit, LPDDR4ExampleDesign
 from .lpddr5_components import LPDDR5ControllerCircuit, LPDDR5ControllerComponent
 from .lpddr5_example import LPDDR5ExampleCircuit, LPDDR5ExampleDesign
+from .MT40A1G16TB_062E_F import DDR4SingleMemoryCircuit
 from .MT62F4G32D8DV_026_AIT_B import MT62F4G32D8DV_026_AIT_B, LPDDR5MemoryCircuit
 
 __all__ = [
@@ -39,6 +40,7 @@ __all__ = [
     "DDR4MemoryCircuit",
     # DDR4
     "DDR4MemoryComponent",
+    "DDR4SingleMemoryCircuit",
     "DDR5ControllerCircuit",
     "DDR5ControllerCircuit_x16",
     "DDR5ExampleCircuit",

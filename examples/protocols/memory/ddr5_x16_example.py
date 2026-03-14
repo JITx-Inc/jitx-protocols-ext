@@ -37,14 +37,22 @@ class DDR5x16ExampleCircuit(Circuit):
         self.memory = DDR5MemoryCircuit_x16()
         self.controller = DDR5ControllerCircuit_x16()
 
-        self.power_nets = [
-            self.GND + self.memory.pwr.Vn + self.controller.pwr.Vn,
-            self.VDD + self.memory.pwr.Vp + self.controller.pwr.Vp,
-        ]
+        # Power nets — memory has separate VDD, VDDQ, VPP rails
+        self.GND += self.memory.pwr_vdd.Vn + self.controller.pwr.Vn
+        self.VDD += self.controller.pwr.Vp
+
+        self.MEM_VDD = Net(name="MEM_VDD")
+        self.MEM_VDD += self.memory.pwr_vdd.Vp
+
+        self.MEM_VDDQ = Net(name="MEM_VDDQ")
+        self.MEM_VDDQ += self.memory.pwr_vddq.Vp
+
+        self.MEM_VPP = Net(name="MEM_VPP")
+        self.MEM_VPP += self.memory.pwr_vpp.Vp
 
         self.constraint = DDR5Constraint(width=DDR5Width.x16, rank=DDR5Rank.SingleRank)
         ctrl_io = self.controller.require(DDR5(DDR5Width.x16, DDR5Rank.SingleRank))
-        mem_io = self.memory.io
+        mem_io = self.memory.require(DDR5(DDR5Width.x16, DDR5Rank.SingleRank))
 
         topos = []
         with self.constraint.constrain_topology(ctrl_io, mem_io) as (src, dst):

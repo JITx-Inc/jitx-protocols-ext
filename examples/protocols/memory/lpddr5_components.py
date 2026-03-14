@@ -273,9 +273,9 @@ class LPDDR5ControllerCircuit(Circuit):
     def __init__(self):
         self.cpu = LPDDR5ControllerComponent()
 
-        self._lpddr5_provide = Provide(
-            LPDDR5(LPDDR5Width.x32, LPDDR5Rank.DualRank)
-        ).one_of(lambda b: [self._create_lpddr5_mapping(b)])
+        self._lpddr5_provide = Provide(LPDDR5(LPDDR5Width.x32, LPDDR5Rank.DualRank)).one_of(
+            lambda b: [self._create_lpddr5_mapping(b)]
+        )
 
     def _create_lpddr5_mapping(self, b: LPDDR5) -> dict:
         """Create mapping from LPDDR5 bundle to controller pins"""
