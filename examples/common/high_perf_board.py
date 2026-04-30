@@ -285,25 +285,77 @@ INNER_DIFF_100_PAIR_SPACING: float = 0.165
 "Inner-stripline 100 Ω diff pair spacing (mm)."
 
 
+# ---------------------------------------------------------------------------
+# AMD UG863 H-derived clearances
+# ---------------------------------------------------------------------------
+# H = distance from a signal layer to its nearest GND return plane. For
+# the high-perf 16-layer stripline stackup this is the inner-stripline
+# dielectric thickness (0.1 mm). Hard-coded here rather than introspected
+# from the live stackup so the routing structures remain pure data — if
+# you change the stackup dielectric, update this constant to match.
+_H_STRIPLINE: float = 0.1
+
+# UG863 "Outside SoC/DRAM" inter-net clearance multipliers in units of
+# H (the strictest applicable rule defines the per-layer routing-
+# structure clearance; tag-based rules in lpddr_constraints layer on
+# the looser cross-class clearances).
+_H_MUL_DATA_SAME_BYTE: float = 2.5  # DQ-to-DQ within byte
+_H_MUL_DATA_STROBE_SAME_BYTE: float = 5.0  # DQ ↔ WCK/RDQS within byte
+_H_MUL_INTER_BYTE: float = 7.0  # data/strobe across bytes
+_H_MUL_CACK_TO_DATA: float = 7.0  # CAC/CK ↔ data/strobe
+_H_MUL_CA_TO_CK: float = 5.0  # CA/CSn ↔ CK
+_H_MUL_CAC_SAME: float = 2.5  # within CAC class
+# UG863 "Under SoC/DRAM" tighter rules (used as neck-down clearances).
+_H_MUL_NECK_DATA_SAME_BYTE: float = 1.0
+_H_MUL_NECK_INTER_BYTE: float = 2.0
+
+
 def _diff_layer(
-    trace_width: float, pair_spacing: float
+    trace_width: float,
+    pair_spacing: float,
+    *,
+    clearance: float | None = None,
+    neck_trace_width: float | None = None,
+    neck_pair_spacing: float | None = None,
+    neck_clearance: float | None = None,
 ) -> "DifferentialRoutingStructure.Layer":
     """Build a fresh ``DifferentialRoutingStructure.Layer`` with the
     project-default loss / velocity / clearance values.
 
+    Default clearances follow AMD UG863 H-multiplier rules for the
+    high-perf 16-layer stripline stackup: main-routing clearance is the
+    inter-byte data-strobe rule (``7 H``), neck-down clearance is the
+    relaxed "Under SoC/DRAM" inter-byte rule (``2 H``). Override either
+    if your channel uses a different group of nets on this layer.
+
+    Neck-down trace geometry defaults to the same width / spacing as
+    the main routing — pass ``neck_trace_width`` /
+    ``neck_pair_spacing`` to use a different fanout impedance target
+    (e.g., :py:data:`INNER_DIFF_100_TRACE_WIDTH` /
+    :py:data:`INNER_DIFF_100_PAIR_SPACING` to encode UG863's 100 Ω
+    fanout target).
+
     Each call returns a new instance — the caller chains
     ``.reference(...)`` and (optionally) ``.fence(...)`` on the result.
     """
+    if clearance is None:
+        clearance = _H_MUL_INTER_BYTE * _H_STRIPLINE
+    if neck_clearance is None:
+        neck_clearance = _H_MUL_NECK_INTER_BYTE * _H_STRIPLINE
+    if neck_trace_width is None:
+        neck_trace_width = trace_width
+    if neck_pair_spacing is None:
+        neck_pair_spacing = pair_spacing
     return DifferentialRoutingStructure.Layer(
         trace_width=trace_width,
         pair_spacing=pair_spacing,
-        clearance=0.05,
+        clearance=clearance,
         velocity=_VEL_STRIPLINE,
         insertion_loss=0.018,
         neck_down=DifferentialRoutingStructure.NeckDown(
-            trace_width=trace_width,
-            pair_spacing=pair_spacing,
-            clearance=0.05,
+            trace_width=neck_trace_width,
+            pair_spacing=neck_pair_spacing,
+            clearance=neck_clearance,
         ),
     )
 
@@ -313,6 +365,10 @@ def _diff_layers_3psh(
     pair_spacing: float,
     *,
     fences: dict[int, type[Via]] | None = None,
+    neck_trace_width: float | None = None,
+    neck_pair_spacing: float | None = None,
+    clearance: float | None = None,
+    neck_clearance: float | None = None,
 ) -> dict[int, "DifferentialRoutingStructure.Layer"]:
     """Build a 6-layer differential routing dict — 3 shielded layers per
     side — covering the high-perf 16-layer stackup's full inner-stripline
@@ -354,7 +410,14 @@ def _diff_layers_3psh(
     layers: dict[int, "DifferentialRoutingStructure.Layer"] = {}
     for idx, (above, below) in refs.items():
         layer = (
-            _diff_layer(trace_width, pair_spacing)
+            _diff_layer(
+                trace_width,
+                pair_spacing,
+                clearance=clearance,
+                neck_trace_width=neck_trace_width,
+                neck_pair_spacing=neck_pair_spacing,
+                neck_clearance=neck_clearance,
+            )
             .reference(above, 1.0)
             .reference(below, 1.0)
         )
@@ -369,12 +432,22 @@ def _se_layer(
     trace_width: float,
     *,
     neck_down_trace_width: float | None = None,
-    clearance: float = 0.135,
-    neck_down_clearance: float = 0.10,
+    clearance: float | None = None,
+    neck_down_clearance: float | None = None,
 ) -> "RoutingStructure.Layer":
     """Build a fresh ``RoutingStructure.Layer`` (single-ended) with the
     project-default loss / velocity values.
+
+    Default clearances follow AMD UG863 H-multiplier rules: main
+    clearance defaults to the same-byte data rule (``2.5 H``);
+    neck-down clearance defaults to the "Under SoC/DRAM" same-byte
+    rule (``1 H``). Override per-call when a stricter inter-class
+    rule applies on this layer.
     """
+    if clearance is None:
+        clearance = _H_MUL_DATA_SAME_BYTE * _H_STRIPLINE
+    if neck_down_clearance is None:
+        neck_down_clearance = _H_MUL_NECK_DATA_SAME_BYTE * _H_STRIPLINE
     return RoutingStructure.Layer(
         trace_width=trace_width,
         clearance=clearance,
@@ -640,13 +713,22 @@ class HighPerfSubstrate(Substrate):
     )
 
     # 75 Ω differential stripline — LPDDR5 CK / WCK / RDQS per AMD UG863.
-    # No via fencing — interpolated geometry not yet impedance-verified
-    # so we keep the structure simple.
+    # Main routing on the inner stripline layers at 75 Ω; neck-down
+    # uses 100 Ω geometry (`INNER_DIFF_100_*`) which is UG863's spec
+    # for the BGA fanout region under the SoC / DRAM. Layer clearance
+    # = 5 H = 0.5 mm (CA-to-CK rule from UG863 §"Physical Design Rules"
+    # — covers CK ↔ WCK / CK ↔ RDQS on the same layer); neck-down
+    # clearance = 1 H = 0.1 mm (the relaxed "Under SoC/DRAM" within-
+    # byte rule). No via fencing by default — opt in via fences=.
     DRS_DiffPair_75 = DifferentialRoutingStructure(
         name="75 ohm Differential Stripline",
         impedance=75 * ohm,
         layers=_diff_layers_3psh(
             INNER_DIFF_75_TRACE_WIDTH, INNER_DIFF_75_PAIR_SPACING,
+            clearance=_H_MUL_CA_TO_CK * _H_STRIPLINE,
+            neck_trace_width=INNER_DIFF_100_TRACE_WIDTH,
+            neck_pair_spacing=INNER_DIFF_100_PAIR_SPACING,
+            neck_clearance=_H_MUL_NECK_DATA_SAME_BYTE * _H_STRIPLINE,
         ),
         uncoupled_region=RoutingStructure(
             name="75 ohm Uncoupled (~38 ohm SE)",

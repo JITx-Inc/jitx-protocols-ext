@@ -9,6 +9,7 @@ one of three packing options (Optimum / PackedLeft / PackedRight).
 from jitx import Design, Net
 from jitx.circuit import Circuit
 from jitx.copper import Pour
+from jitx.si import ReferencePlanes
 from jitx.transform import Transform
 
 from examples.common.high_perf_board import (
@@ -164,18 +165,42 @@ class XC2VE3858LPDDR5ExampleCircuit(Circuit):
         #    generate the tag-based `design_constraint` rules for trace
         #    width / pair spacing / clearance — replacing the per-layer
         #    bindings that a `RoutingStructure` would normally provide.
+        # Pair the per-signal-class routing structures with the
+        # constraint. SE_40 covers DQ + DMI + CA + CSn + RESET_N
+        # (40 Ω single-ended per AMD UG863). DRS_DiffPair_75 is shared
+        # by CK / WCK / RDQS (75 Ω diff). The structures' clearance
+        # values are H-derived (UG863 H-multiplier rules); the tag-
+        # based design rules from `make_lpddr_routing_rules` /
+        # `make_lpddr_spacing_rules` layer on cross-class clearances
+        # the per-layer structure clearance can't express.
         self.constraint = LPDDR5Constraint(
             width=LPDDR5Width.x32,
             rank=LPDDR5Rank.DualRank,
+            dq_structure=HighPerfSubstrate.SE_40,
+            ca_structure=HighPerfSubstrate.SE_40,
+            ck_structure=HighPerfSubstrate.DRS_DiffPair_75,
+            wck_structure=HighPerfSubstrate.DRS_DiffPair_75,
+            rdqs_structure=HighPerfSubstrate.DRS_DiffPair_75,
         )
 
         ctrl_io = self.fpga.require(LPDDR5(LPDDR5Width.x32, LPDDR5Rank.DualRank))
         mem_io = self.memory.require(LPDDR5(LPDDR5Width.x32, LPDDR5Rank.DualRank))
 
-        with self.constraint.constrain_topology(ctrl_io, mem_io) as (src, dst):
-            self.lpddr5_topos = tag_lpddr_link(
-                src, dst, LPDDR5Width.x32, LPDDR5Rank.DualRank,
-            )
+        # `ReferencePlanes(self.GND)` (all-form) tells JITX that every
+        # reference-layer slot demanded by the LPDDR5 routing
+        # structures (8 GND planes in the 16-layer stripline stackup)
+        # resolves to this circuit's GND net.
+        with ReferencePlanes(self.GND):
+            with self.constraint.constrain_topology(ctrl_io, mem_io) as (src, dst):
+                # Tag application kept commented out — the tag-based
+                # design_constraint rules below are also disabled.
+                # Re-enable both together if you want the cross-class
+                # clearance rules from `make_lpddr_spacing_rules` to
+                # take effect.
+                # self.lpddr5_topos = tag_lpddr_link(
+                #     src, dst, LPDDR5Width.x32, LPDDR5Rank.DualRank,
+                # )
+                pass
 
         # Per-port via attachments on the LPDDR5 bus. Bundle leaves
         # all share one underlying Port object via JITX's pin-assignment
@@ -207,25 +232,24 @@ class XC2VE3858LPDDR5ExampleCircuit(Circuit):
             mem_parent_transform=mem_tx,
         )
 
-        # AMD UG863 pairwise spacing rules — parameterized by H, the
-        # distance from the inner stripline (signal layer index 2 of the
-        # 16-layer symmetric stack) to its nearest GND plane.
-        h_mm = get_H(HighPerfSubstrate.stackup, signal_layer_index=2)
-        self.lpddr_spacing_rules = make_lpddr_spacing_rules(
-            H=h_mm, num_bytes=4, num_channels=2,
-        )
-
-        # Tag-based design rules that mimic an inner-stripline routing
-        # structure (trace width per signal class + within-pair P/N
-        # spacing for each diff signal). Numeric values pulled from
-        # high_perf_board's published trace dimensions so this example
-        # tracks the substrate's geometry without re-stating impedances.
-        self.lpddr_routing_rules = make_lpddr_routing_rules(
-            dq_trace_width=INNER_SE_40_TRACE_WIDTH,
-            ca_trace_width=INNER_SE_40_TRACE_WIDTH,
-            diff_trace_width=INNER_DIFF_75_TRACE_WIDTH,
-            diff_pair_spacing=INNER_DIFF_75_PAIR_SPACING,
-        )
+        # Tag-based design rules — currently disabled. The LPDDR5
+        # routing structures bound on `LPDDR5Constraint` above already
+        # set per-layer trace width / pair spacing / clearance, so
+        # we don't layer the tag rules on top right now. The helper
+        # calls below are kept as reference for re-enabling them
+        # alongside `tag_lpddr_link` (see the `constrain_topology`
+        # block above).
+        #
+        # h_mm = get_H(HighPerfSubstrate.stackup, signal_layer_index=2)
+        # self.lpddr_spacing_rules = make_lpddr_spacing_rules(
+        #     H=h_mm, num_bytes=4, num_channels=2,
+        # )
+        # self.lpddr_routing_rules = make_lpddr_routing_rules(
+        #     dq_trace_width=INNER_SE_40_TRACE_WIDTH,
+        #     ca_trace_width=INNER_SE_40_TRACE_WIDTH,
+        #     diff_trace_width=INNER_DIFF_75_TRACE_WIDTH,
+        #     diff_pair_spacing=INNER_DIFF_75_PAIR_SPACING,
+        # )
 
         # Drop vias on every power/ground pad of the FPGA and on every
         # GND pad of the memory device, connecting each via into the
