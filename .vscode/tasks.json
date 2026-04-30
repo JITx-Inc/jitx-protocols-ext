@@ -1,0 +1,202 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run examples.protocols.jesd204.jesd204_example.JESD204ExampleDesign",
+            "type": "process",
+            "command": "python",
+            "args": [
+                "-m",
+                "jitx",
+                "build",
+                "examples.protocols.jesd204.jesd204_example.JESD204ExampleDesign",
+                "--port",
+                "${command:jitx.get-websocket-port}"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build"
+            },
+            "detail": "JITX Build task"
+        },
+        {
+            "label": "Run examples.protocols.memory.ddr4_example.DDR4ExampleDesign",
+            "type": "process",
+            "command": "python",
+            "args": [
+                "-m",
+                "jitx",
+                "build",
+                "examples.protocols.memory.ddr4_example.DDR4ExampleDesign",
+                "--port",
+                "${command:jitx.get-websocket-port}"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build"
+            },
+            "detail": "JITX Build task"
+        },
+        {
+            "label": "Run examples.protocols.memory.ddr5_example.DDR5ExampleDesign",
+            "type": "process",
+            "command": "python",
+            "args": [
+                "-m",
+                "jitx",
+                "build",
+                "examples.protocols.memory.ddr5_example.DDR5ExampleDesign",
+                "--port",
+                "${command:jitx.get-websocket-port}"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build"
+            },
+            "detail": "JITX Build task"
+        },
+        {
+            "label": "Run examples.protocols.memory.ddr5_x16_example.DDR5x16ExampleDesign",
+            "type": "process",
+            "command": "python",
+            "args": [
+                "-m",
+                "jitx",
+                "build",
+                "examples.protocols.memory.ddr5_x16_example.DDR5x16ExampleDesign",
+                "--port",
+                "${command:jitx.get-websocket-port}"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build"
+            },
+            "detail": "JITX Build task"
+        },
+        {
+            "label": "Run examples.protocols.memory.gddr7_example.GDDR7ExampleDesign",
+            "type": "process",
+            "command": "python",
+            "args": [
+                "-m",
+                "jitx",
+                "build",
+                "examples.protocols.memory.gddr7_example.GDDR7ExampleDesign",
+                "--port",
+                "${command:jitx.get-websocket-port}"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build"
+            },
+            "detail": "JITX Build task"
+        },
+        {
+            "label": "Run examples.protocols.memory.lpddr4_example.LPDDR4ExampleDesign",
+            "type": "process",
+            "command": "python",
+            "args": [
+                "-m",
+                "jitx",
+                "build",
+                "examples.protocols.memory.lpddr4_example.LPDDR4ExampleDesign",
+                "--port",
+                "${command:jitx.get-websocket-port}"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build"
+            },
+            "detail": "JITX Build task"
+        },
+        {
+            "label": "Run examples.protocols.memory.lpddr5_example.LPDDR5ExampleDesign",
+            "type": "process",
+            "command": "python",
+            "args": [
+                "-m",
+                "jitx",
+                "build",
+                "examples.protocols.memory.lpddr5_example.LPDDR5ExampleDesign",
+                "--port",
+                "${command:jitx.get-websocket-port}"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build"
+            },
+            "detail": "JITX Build task"
+        },
+        {
+            "label": "Run examples.protocols.pcie.pcie_example.PCIeExampleDesign",
+            "type": "process",
+            "command": "python",
+            "args": [
+                "-m",
+                "jitx",
+                "build",
+                "examples.protocols.pcie.pcie_example.PCIeExampleDesign",
+                "--port",
+                "${command:jitx.get-websocket-port}"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build"
+            },
+            "detail": "JITX Build task"
+        },
+        {
+            "label": "Run examples.protocols.sata.sata_example.SATAExampleDesign",
+            "type": "process",
+            "command": "python",
+            "args": [
+                "-m",
+                "jitx",
+                "build",
+                "examples.protocols.sata.sata_example.SATAExampleDesign",
+                "--port",
+                "${command:jitx.get-websocket-port}"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build"
+            },
+            "detail": "JITX Build task"
+        },
+        {
+            "label": "Run examples.protocols.sfp.sfp_example.SFPExampleDesign",
+            "type": "process",
+            "command": "python",
+            "args": [
+                "-m",
+                "jitx",
+                "build",
+                "examples.protocols.sfp.sfp_example.SFPExampleDesign",
+                "--port",
+                "${command:jitx.get-websocket-port}"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build"
+            },
+            "detail": "JITX Build task"
+        },
+        {
+            "label": "Run All JITX Designs in Project",
+            "type": "process",
+            "command": "python",
+            "args": [
+                "-m",
+                "jitx",
+                "build-all",
+                "--port",
+                "${command:jitx.get-websocket-port}"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build"
+            },
+            "detail": "JITX Build task"
+        }
+    ]
+}

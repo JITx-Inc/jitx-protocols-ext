@@ -1,9 +1,15 @@
-"""Common Board and Stackup Setup for Protocol Examples
+"""Generic FR-4 Board and Stackup for Protocol Examples.
 
-Translation of jsl/examples/protocols/common/example-board.stanza
+Translation of jsl/examples/protocols/common/example-board.stanza.
 
-This provides a 6-layer stackup, board shape, design rules, and routing
-structures suitable for high-speed protocols like PCIe, USB, DDR4, LPDDR5, etc.
+A baseline 6-layer FR-4 stackup with single-ended (40/45/50 Ω) and
+differential (85/90/100 Ω) routing structures. Used by the PCIe, USB,
+DDR4, GDDR7, LPDDR4, LPDDR5 (generic), JESD204, SATA, and SFP examples.
+
+For an HDI-class higher-performance option (8-layer symmetric, low-loss
+generic dielectric, BGA-grade fab rules), see
+:py:mod:`examples.common.high_perf_board`. The XC2VE3858 + LPDDR5 example
+is wired to that board by default.
 """
 
 from jitx.board import Board
@@ -14,7 +20,7 @@ from jitx.stackup import Conductor, Dielectric, Stackup
 from jitx.substrate import FabricationConstraints, Substrate
 from jitx.toleranced import Toleranced
 from jitx.via import Via, ViaType
-
+from jitx.shapes.shapely import ShapelyGeometry
 
 # Materials
 class Copper(Conductor):
@@ -163,7 +169,7 @@ def create_differential_routing_structure(
     """Create a differential routing structure for a given impedance
 
     Args:
-        impedance: Target differential impedance (85, 90, or 100 Ohm)
+        impedance: Target differential impedance (75, 85, 90, or 100 Ohm)
 
     Returns:
         DifferentialRoutingStructure instance configured for the impedance
@@ -171,15 +177,20 @@ def create_differential_routing_structure(
     # Get typical value from Toleranced
     ti = impedance.typ
 
-    # Determine trace width based on impedance
-    if ti == 85.0:
+    # Determine trace width based on impedance. 75 Ω is the LPDDR5 target
+    # per AMD UG863; trace width interpolated below the 85 Ω entry.
+    if ti == 75.0:
+        tw = 0.1100
+    elif ti == 85.0:
         tw = 0.1200
     elif ti == 90.0:
         tw = 0.1275
     elif ti == 100.0:
         tw = 0.1310
     else:
-        raise ValueError(f"Unsupported impedance: {ti}. Must be 85, 90, or 100 Ohm")
+        raise ValueError(
+            f"Unsupported impedance: {ti}. Must be 75, 85, 90, or 100 Ohm"
+        )
 
     outer_layer = DifferentialRoutingStructure.Layer(
         trace_width=tw,
@@ -241,6 +252,7 @@ class ExampleSubstrate(Substrate):
     se_45 = SE45RoutingStructure()
     se_50 = SE50RoutingStructure()
     # Differential routing structures for common impedances
+    diff_75 = create_differential_routing_structure(Toleranced.percent(75, 10))
     diff_85 = create_differential_routing_structure(Toleranced.percent(85, 5))
     diff_90 = create_differential_routing_structure(Toleranced.percent(90, 5))
     diff_100 = create_differential_routing_structure(Toleranced.percent(100, 5))
@@ -294,7 +306,8 @@ class ExampleSubstrate(Substrate):
 
 # Board shape: 50mm x 30mm
 board_shape = rectangle(50.0, 30.0)
-
+bs = ShapelyGeometry.from_shape(rectangle(50.0, 30.0))
+signal_shape = bs.buffer(-0.5)
 
 class ExampleBoard(Board):
     """Board Definition for Protocol Examples

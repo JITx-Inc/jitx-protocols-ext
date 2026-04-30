@@ -35,6 +35,16 @@ from .sfp import (
     connect_sfp_dd,
     link_to_lane_count,
 )
+from .xilinx_versal import (
+    GTRUSB3,
+    GTYPMMIQuad,
+    GTYPQuad,
+    HDIOBank,
+    LPDMioBank,
+    MIPIPhy,
+    PMCMioBank,
+    X5IOBank,
+)
 
 __all__ = [
     # JESD204
@@ -69,4 +79,13 @@ __all__ = [
     "connect_sfp",
     "connect_sfp_dd",
     "link_to_lane_count",
+    # Xilinx Versal
+    "GTRUSB3",
+    "GTYPMMIQuad",
+    "GTYPQuad",
+    "HDIOBank",
+    "LPDMioBank",
+    "MIPIPhy",
+    "PMCMioBank",
+    "X5IOBank",
 ]

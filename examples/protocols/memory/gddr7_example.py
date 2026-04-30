@@ -12,7 +12,7 @@ This example demonstrates:
 from jitx import Design, Net
 from jitx.circuit import Circuit
 
-from examples.common.example_board import ExampleBoard, ExampleSubstrate
+from examples.common.generic_fr4_board import ExampleBoard, ExampleSubstrate
 from jitx_protocols_ext.protocols.memory.gddr7 import GDDR7, GDDR7Constraint
 
 from .gddr7_components import GDDR7ICCircuit, GDDR7MemoryCircuit

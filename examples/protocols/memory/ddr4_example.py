@@ -7,7 +7,7 @@ integrity constraints applied via DDR4Constraint.constrain_topology().
 from jitx import Design, Net
 from jitx.circuit import Circuit
 
-from examples.common.example_board import ExampleBoard, ExampleSubstrate
+from examples.common.generic_fr4_board import ExampleBoard, ExampleSubstrate
 from jitx_protocols_ext.protocols.memory.ddr4 import (
     DDR4,
     DDR4Constraint,

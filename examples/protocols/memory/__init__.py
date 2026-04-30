@@ -26,6 +26,16 @@ from .lpddr5_components import LPDDR5ControllerCircuit, LPDDR5ControllerComponen
 from .lpddr5_example import LPDDR5ExampleCircuit, LPDDR5ExampleDesign
 from .MT40A1G16TB_062E_F import DDR4SingleMemoryCircuit
 from .MT62F4G32D8DV_026_AIT_B import MT62F4G32D8DV_026_AIT_B, LPDDR5MemoryCircuit
+from .xc2ve3858_components import (
+    LPDDR5Packing as XC2VE3858LPDDR5Packing,
+    SSVA2112BGALandpattern,
+    XC2VE3858,
+    XC2VE3858Circuit,
+)
+from .xc2ve3858_lpddr5_example import (
+    XC2VE3858LPDDR5ExampleCircuit,
+    XC2VE3858LPDDR5ExampleDesign,
+)
 
 __all__ = [
     # GDDR7
@@ -70,4 +80,11 @@ __all__ = [
     "LPDDR5ExampleCircuit",
     "LPDDR5ExampleDesign",
     "LPDDR5MemoryCircuit",
+    # Xilinx Versal XC2VE3858 FPGA + LPDDR5 example
+    "SSVA2112BGALandpattern",
+    "XC2VE3858",
+    "XC2VE3858Circuit",
+    "XC2VE3858LPDDR5ExampleCircuit",
+    "XC2VE3858LPDDR5ExampleDesign",
+    "XC2VE3858LPDDR5Packing",
 ]

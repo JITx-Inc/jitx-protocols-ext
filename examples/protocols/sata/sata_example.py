@@ -11,7 +11,7 @@ from jitx import Design, Net
 from jitx.circuit import Circuit
 from jitx.common import DiffPair
 
-from examples.common.example_board import ExampleBoard, ExampleSubstrate
+from examples.common.generic_fr4_board import ExampleBoard, ExampleSubstrate
 from examples.common.example_components import BlockingCapacitor
 from jitx_protocols_ext.protocols.sata import SATA
 from .sata_components import SATASwitchCircuit

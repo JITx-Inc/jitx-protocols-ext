@@ -14,7 +14,7 @@ from jitx.circuit import Circuit
 from jitx.common import DiffPair
 from jitx.si import SignalConstraint
 
-from examples.common.example_board import ExampleBoard, ExampleSubstrate
+from examples.common.generic_fr4_board import ExampleBoard, ExampleSubstrate
 from examples.common.example_components import BlockingCapacitor
 from jitx_protocols_ext.protocols.pcie import (
     PCIe,

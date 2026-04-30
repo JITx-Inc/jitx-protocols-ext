@@ -12,12 +12,17 @@ This example demonstrates:
 from jitx import Design, Net
 from jitx.circuit import Circuit
 
-from examples.common.example_board import ExampleBoard, ExampleSubstrate
+from examples.common.generic_fr4_board import ExampleBoard, ExampleSubstrate
 from jitx_protocols_ext.protocols.memory.lpddr5 import (
     LPDDR5,
     LPDDR5Constraint,
     LPDDR5Rank,
     LPDDR5Width,
+)
+from jitx_protocols_ext.protocols.memory.lpddr_constraints import (
+    get_H,
+    make_lpddr_spacing_rules,
+    tag_lpddr_link,
 )
 
 from .lpddr5_components import LPDDR5ControllerCircuit
@@ -70,50 +75,25 @@ class LPDDR5ExampleCircuit(Circuit):
         ctrl_io = self.controller.require(LPDDR5(LPDDR5Width.x32, LPDDR5Rank.DualRank))
         mem_io = self.memory.require(LPDDR5(LPDDR5Width.x32, LPDDR5Rank.DualRank))
 
-        # Connect LPDDR5 interface with constraints
-        topos = []
-
+        # `tag_lpddr_link` builds all signal topologies via `>>` and tags
+        # each one with its per-port-type, byte, and channel tags. The
+        # AMD UG863 spacing rules registered below match those tags.
         with self.constraint.constrain_topology(
             ctrl_io,
             mem_io,  # Controller -> Memory
         ) as (src, dst):
-            # Reset signal (shared)
-            topos.append([src.reset_n >> dst.reset_n])
+            self.lpddr5_topos = tag_lpddr_link(
+                src, dst, LPDDR5Width.x32, LPDDR5Rank.DualRank,
+            )
 
-            # Connect each channel (x32 = 2 channels)
-            num_ch = 2
-            num_ranks = 2
-            for ch_idx in range(num_ch):
-                # CK connection
-                topos.append([src.ck[ch_idx] >> dst.ck[ch_idx]])
-
-                # CS connections (2 ranks)
-                for rank_idx in range(num_ranks):
-                    topos.append([src.cs[ch_idx][rank_idx] >> dst.cs[ch_idx][rank_idx]])
-
-                # CA connections (7 per channel)
-                for ca_idx in range(7):
-                    topos.append([src.ca[ch_idx][ca_idx] >> dst.ca[ch_idx][ca_idx]])
-
-                # Data lane connections (2 lanes per channel)
-                for lane_idx in range(2):
-                    src_lane = src.d[ch_idx][lane_idx]
-                    dst_lane = dst.d[ch_idx][lane_idx]
-
-                    # WCK
-                    topos.append([src_lane.wck >> dst_lane.wck])
-
-                    # RDQS
-                    topos.append([src_lane.rdqs >> dst_lane.rdqs])
-
-                    # DQ (8 per lane)
-                    for dq_idx in range(8):
-                        topos.append([src_lane.dq[dq_idx] >> dst_lane.dq[dq_idx]])
-
-                    # DMI
-                    topos.append([src_lane.dmi >> dst_lane.dmi])
-
-        self.lpddr5_topos = topos
+        # AMD UG863 pairwise spacing rules — parameterized by H, the
+        # distance from the inner stripline to its nearest GND plane.
+        # The generic FR-4 stackup routes high-speed signals on its
+        # inner layers (signal layer index 2 = first inner copper).
+        h_mm = get_H(ExampleSubstrate.stackup, signal_layer_index=2)
+        self.lpddr_rules = make_lpddr_spacing_rules(
+            H=h_mm, num_bytes=4, num_channels=2,
+        )
 
 
 class LPDDR5ExampleDesign(Design):

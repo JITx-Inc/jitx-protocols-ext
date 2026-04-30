@@ -11,6 +11,7 @@ from jitx.common import Power
 from jitx.component import Component
 from jitx.net import Port
 from jitx.toleranced import Toleranced
+from jitx.transform import Transform
 from jitxlib.landpatterns.generators.bga import BGA
 from jitxlib.landpatterns.ipc import DensityLevel
 from jitxlib.landpatterns.package import RectanglePackage
@@ -506,6 +507,10 @@ class LPDDR5MemoryCircuit(Circuit):
 
     def __init__(self):
         self.mem = MT62F4G32D8DV_026_AIT_B()
+        # Place the memory component at this circuit's origin so it
+        # tracks whatever placement the parent design assigns to this
+        # LPDDR5MemoryCircuit instance.
+        self.place(self.mem, Transform.translate(0.0, 0.0))
 
         # Power rail wiring — all rails share VSS ground
         self.vss_net = Net(
