@@ -10,7 +10,6 @@ from jitx import Design, Net
 from jitx.circuit import Circuit
 from jitx.copper import Pour
 from jitx.si import ReferencePlanes
-from jitx.transform import Transform
 
 from examples.common.high_perf_board import (
     INNER_DIFF_75_PAIR_SPACING,
@@ -26,7 +25,6 @@ from jitx_protocols_ext.protocols.memory.lpddr5 import (
     LPDDR5Width,
 )
 from jitx_protocols_ext.protocols.memory.lpddr_constraints import (
-    attach_lpddr_link_vias,
     drop_vias_on_net_pads,
     get_H,
     make_lpddr_routing_rules,
@@ -35,12 +33,7 @@ from jitx_protocols_ext.protocols.memory.lpddr_constraints import (
 )
 
 from .MT62F4G32D8DV_026_AIT_B import MT62F4G32D8DV_026_AIT_B, LPDDR5MemoryCircuit
-from .xc2ve3858_components import (
-    LPDDR5Packing,
-    X5IO_DDRMC_BASE_BANKS,
-    XC2VE3858,
-    XC2VE3858Circuit,
-)
+from .xc2ve3858_components import XC2VE3858, XC2VE3858Circuit
 
 
 # Per-net via-on-pad drops for the FPGA side of this design. Each
@@ -70,34 +63,6 @@ MEM_NET_VIA_DROPS: dict[str, type] = {
     "VDDQ": HighPerfSubstrate.TH_Via_Pwr,
 }
 
-# LPDDR5 bus-signal via attachments — one via per port per side via
-# `PortAttachment`. Each byte lane gets a single Via type that covers
-# every signal in that byte (DQ[7:0], DMI, WCK_p/n, RDQS_p/n — 13
-# ports per side). Each channel gets a single Via type for its CAC
-# signals (CK_p/n, CS[0..rank-1], CA[0..6]). The same Via class is
-# applied on both controller (FPGA) and memory sides. Type duplication
-# is fine — only 3 inner-stripline BGA-escape uvias exist on the
-# HighPerfSubstrate (L1→L3, L1→L5, L1→L7), so byte lanes and channels
-# fan out to the same set of routing layers.
-#
-# Index convention: byte_idx = ch_idx * 2 + lane_idx
-#   byte 0 = channel 0 low byte (DQ[7:0])
-#   byte 1 = channel 0 high byte (DQ[15:8])
-#   byte 2 = channel 1 low byte
-#   byte 3 = channel 1 high byte
-LPDDR5_BYTE_VIA_TYPES: list[type] = [
-    HighPerfSubstrate.uVia_L1_L3,  # byte 0 → L3
-    HighPerfSubstrate.uVia_L1_L5,  # byte 1 → L5
-    HighPerfSubstrate.uVia_L1_L3,  # byte 2 → L3 (reuse top-shallowest)
-    HighPerfSubstrate.uVia_L1_L5,  # byte 3 → L5
-]
-LPDDR5_CHANNEL_VIA_TYPES: list[type] = [
-    HighPerfSubstrate.uVia_L1_L7,  # channel 0 CAC → L7
-    HighPerfSubstrate.uVia_L1_L7,  # channel 1 CAC → L7 (reuse)
-]
-LPDDR5_RESET_VIA: type = HighPerfSubstrate.uVia_L1_L7
-
-
 # 0-indexed conductor layers that should carry a board-wide GND pour.
 # In the 16-layer HighPerfStackup these are exactly the dedicated GND
 # planes (L2, L4, L6, L8 above d_center; L9, L11, L13, L15 below).
@@ -111,27 +76,16 @@ class XC2VE3858LPDDR5ExampleCircuit(Circuit):
     VDD = Net(name="VDD")
 
     def __init__(self):
-        # Mark this circuit as free-floating so the via instances we
-        # create at this level live in the *board* (root) frame rather
-        # than this circuit's local frame. Without this, JITX
-        # interprets per-via `.at(transform)` calls relative to the
-        # enclosing circuit, and the via drops below — which we built
-        # in board coordinates from the child placement transforms —
-        # end up double-transformed once the design is laid out.
+        # Wrapper circuit floats so the via drops below live in the
+        # board (root) frame rather than this circuit's local frame.
         self.at(floating=True)
 
-        # Explicit child placement via `self.place(...)` — the
-        # canonical Circuit API for fixing a child at a known transform
-        # on this circuit's frame of reference. The vias below are
-        # placed in board coordinates (JITX vias don't inherit a
-        # parent container's transform), so the via-drop call is given
-        # the same transform.
+        # FPGA and memory are also free-floating — final placement is
+        # determined by the layout backend rather than fixed here.
         self.fpga = XC2VE3858Circuit()
         self.memory = LPDDR5MemoryCircuit()
-        fpga_tx = Transform.translate(0.0, 0.0)
-        mem_tx = Transform.translate(30.0, 0.0)
-        self.place(self.fpga, fpga_tx)
-        self.place(self.memory, mem_tx)
+        self.fpga.at(floating=True)
+        self.memory.at(floating=True)
 
         # Ground shared across FPGA + every memory rail. The FPGA exposes
         # one Power port per rail; their Vn pins are merged inside the
@@ -192,45 +146,16 @@ class XC2VE3858LPDDR5ExampleCircuit(Circuit):
         # resolves to this circuit's GND net.
         with ReferencePlanes(self.GND):
             with self.constraint.constrain_topology(ctrl_io, mem_io) as (src, dst):
-                # Tag application kept commented out — the tag-based
-                # design_constraint rules below are also disabled.
-                # Re-enable both together if you want the cross-class
-                # clearance rules from `make_lpddr_spacing_rules` to
-                # take effect.
-                # self.lpddr5_topos = tag_lpddr_link(
-                #     src, dst, LPDDR5Width.x32, LPDDR5Rank.DualRank,
-                # )
-                pass
-
-        # Per-port via attachments on the LPDDR5 bus. Bundle leaves
-        # all share one underlying Port object via JITX's pin-assignment
-        # system, so we explicitly build the {logical_leaf →
-        # physical_pin} map by reusing the wrapper circuits' Provide-
-        # mapping methods. The (base_bank, packing) tuple must match
-        # the option the solver actually picks — JITX's pin-assignment
-        # solver chose base_bank=713 (the last DDRMC, X5IO_DDRMC_BASE_BANKS[-1])
-        # with the OPTIMUM packing for this design; if you constrain
-        # the solver differently, update this call.
-        ctrl_resolution_map = self.fpga._build_lpddr5_mapping(
-            ctrl_io,
-            base_bank=X5IO_DDRMC_BASE_BANKS[-1],
-            packing=LPDDR5Packing.OPTIMUM,
-        )
-        mem_resolution_map = self.memory._create_lpddr5_mapping(mem_io)
-
-        self.lpddr5_via_attachments = attach_lpddr_link_vias(
-            ctrl_io, mem_io,
-            LPDDR5Width.x32, LPDDR5Rank.DualRank,
-            byte_via_types=LPDDR5_BYTE_VIA_TYPES,
-            channel_via_types=LPDDR5_CHANNEL_VIA_TYPES,
-            reset_via=LPDDR5_RESET_VIA,
-            ctrl_component_instance=self.fpga,
-            mem_component_instance=self.memory,
-            ctrl_resolution_map=ctrl_resolution_map,
-            mem_resolution_map=mem_resolution_map,
-            ctrl_parent_transform=fpga_tx,
-            mem_parent_transform=mem_tx,
-        )
+                # `tag_lpddr_link` is the canonical helper that builds
+                # `src.X >> dst.X` TopologyNets for every LPDDR5 signal
+                # AND tags them. The `>>` connections are required —
+                # without them the require()'d bundles never form
+                # topologies, and constraint translation fails to map
+                # the bundle leaves back to this circuit (manifests as
+                # an "is not an ancestor of child <<<<Port>>>>" error).
+                self.lpddr5_topos = tag_lpddr_link(
+                    src, dst, LPDDR5Width.x32, LPDDR5Rank.DualRank,
+                )
 
         # Tag-based design rules — currently disabled. The LPDDR5
         # routing structures bound on `LPDDR5Constraint` above already
@@ -285,7 +210,6 @@ class XC2VE3858LPDDR5ExampleCircuit(Circuit):
                 "VCC_RAM": self.VCC_RAM,
                 "VCC_MMD": self.VCC_MMD,
             },
-            parent_transform=fpga_tx,
         )
         self.mem_via_drops = drop_vias_on_net_pads(
             self.memory,
@@ -304,7 +228,6 @@ class XC2VE3858LPDDR5ExampleCircuit(Circuit):
                 "VDD2L": self.VDD2L,
                 "VDDQ": self.VDDQ,
             },
-            parent_transform=mem_tx,
         )
 
         # Board-wide GND pours on every dedicated GND plane layer of

@@ -4471,23 +4471,29 @@ class XC2VE3858Circuit(Circuit):
         # USB2 connector
         self._bundle_nets.append(Net([self.usb2.vbus.Vp, fpga.USB2_VBUS0_504], name="USB2_VBUS0_504"))
         gnd_pins.append(self.usb2.vbus.Vn)
-        self._bundle_nets.append(Net([self.usb2.bus.data.p, fpga.USB2_DP0_504], name="USB2_DP0_504"))
-        self._bundle_nets.append(Net([self.usb2.bus.data.n, fpga.USB2_DN0_504], name="USB2_DN0_504"))
+        # USB2 high-speed data — use `>>` so a topology constraint can
+        # be applied later (skew, length match, impedance).
+        self._bundle_nets.append(self.usb2.bus.data.p >> fpga.USB2_DP0_504)
+        self._bundle_nets.append(self.usb2.bus.data.n >> fpga.USB2_DN0_504)
         self._bundle_nets.append(Net([self.usb2.id, fpga.USB2_ID0_504], name="USB2_ID0_504"))
         self._bundle_nets.append(Net([self.USB2_TXRTUNE, fpga.USB2_TXRTUNE_504], name="USB2_TXRTUNE_504"))
 
         # USB3 (GTRUSB3): REFCLK, RESREF, sparse TX[0,3] + TXRX[1,2], VCC, VCCIO
-        self._bundle_nets.append(Net([self.usb3.REFCLK.p, fpga.USB3_REF_CLKP_504], name="USB3_REF_CLKP_504"))
-        self._bundle_nets.append(Net([self.usb3.REFCLK.n, fpga.USB3_REF_CLKN_504], name="USB3_REF_CLKN_504"))
+        # USB3 REFCLK + high-speed data lanes (TX[0,3] + TXRX[1,2]) —
+        # use `>>` so a topology constraint can be applied later
+        # (skew, length match, impedance). RESREF stays a plain Net
+        # since it's a static reference resistor, not a routed signal.
+        self._bundle_nets.append(self.usb3.REFCLK.p >> fpga.USB3_REF_CLKP_504)
+        self._bundle_nets.append(self.usb3.REFCLK.n >> fpga.USB3_REF_CLKN_504)
         self._bundle_nets.append(Net([self.usb3.RESREF, fpga.USB3_RESREF_504], name="USB3_RESREF_504"))
-        self._bundle_nets.append(Net([self.usb3.TX[0].p, fpga.USB3_TXP0_504], name="USB3_TXP0_504"))
-        self._bundle_nets.append(Net([self.usb3.TX[0].n, fpga.USB3_TXN0_504], name="USB3_TXN0_504"))
-        self._bundle_nets.append(Net([self.usb3.TX[3].p, fpga.USB3_TXP3_504], name="USB3_TXP3_504"))
-        self._bundle_nets.append(Net([self.usb3.TX[3].n, fpga.USB3_TXN3_504], name="USB3_TXN3_504"))
-        self._bundle_nets.append(Net([self.usb3.TXRX[1].p, fpga.USB3_TXRXP1_504], name="USB3_TXRXP1_504"))
-        self._bundle_nets.append(Net([self.usb3.TXRX[1].n, fpga.USB3_TXRXN1_504], name="USB3_TXRXN1_504"))
-        self._bundle_nets.append(Net([self.usb3.TXRX[2].p, fpga.USB3_TXRXP2_504], name="USB3_TXRXP2_504"))
-        self._bundle_nets.append(Net([self.usb3.TXRX[2].n, fpga.USB3_TXRXN2_504], name="USB3_TXRXN2_504"))
+        self._bundle_nets.append(self.usb3.TX[0].p >> fpga.USB3_TXP0_504)
+        self._bundle_nets.append(self.usb3.TX[0].n >> fpga.USB3_TXN0_504)
+        self._bundle_nets.append(self.usb3.TX[3].p >> fpga.USB3_TXP3_504)
+        self._bundle_nets.append(self.usb3.TX[3].n >> fpga.USB3_TXN3_504)
+        self._bundle_nets.append(self.usb3.TXRX[1].p >> fpga.USB3_TXRXP1_504)
+        self._bundle_nets.append(self.usb3.TXRX[1].n >> fpga.USB3_TXRXN1_504)
+        self._bundle_nets.append(self.usb3.TXRX[2].p >> fpga.USB3_TXRXP2_504)
+        self._bundle_nets.append(self.usb3.TXRX[2].n >> fpga.USB3_TXRXN2_504)
         self._bundle_nets.append(Net(
             [self.usb3.VCCIO.Vp, *fpga.VCCIO_USB3_504],
             name="VCCIO_USB3_504",

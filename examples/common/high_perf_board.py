@@ -112,11 +112,13 @@ from jitxlib.physics import phase_velocity
 # Materials
 # ---------------------------------------------------------------------------
 
+_DIELECTRIC_THICKNESS = 0.1
+_DIELECTRIC_COEFFICIENT = 3.0
 
 class HighPerfDielectric(Dielectric):
     """Low-loss generic dielectric — Dk 3.0, tan δ 0.004."""
 
-    dielectric_coefficient = 3.0
+    dielectric_coefficient = _DIELECTRIC_COEFFICIENT
     loss_tangent = 0.004
 
 
@@ -134,7 +136,7 @@ class HighPerfCopper(Conductor):
 
 
 # Phase velocity used by all stripline layer entries (Dk 3.0).
-_VEL_STRIPLINE = phase_velocity(3.0)
+_VEL_STRIPLINE = phase_velocity(_DIELECTRIC_COEFFICIENT)
 
 
 # ---------------------------------------------------------------------------
@@ -169,19 +171,19 @@ class HighPerfStackup(Symmetric):
     top_mask = HighPerfSolderMask(thickness=0.0127)
 
     L1_Signal1 = HighPerfCopper(thickness=0.0175, name="L1-Signal1")
-    d_1_2 = HighPerfDielectric(thickness=0.1)
+    d_1_2 = HighPerfDielectric(thickness=_DIELECTRIC_THICKNESS)
     L2_GPlane2 = HighPerfCopper(thickness=0.0175, name="L2-GPlane2")
-    d_2_3 = HighPerfDielectric(thickness=0.1)
+    d_2_3 = HighPerfDielectric(thickness=_DIELECTRIC_THICKNESS)
     L3_Signal3 = HighPerfCopper(thickness=0.0175, name="L3-Signal3")
-    d_3_4 = HighPerfDielectric(thickness=0.1)
+    d_3_4 = HighPerfDielectric(thickness=_DIELECTRIC_THICKNESS)
     L4_GPlane4 = HighPerfCopper(thickness=0.0175, name="L4-GPlane4")
-    d_4_5 = HighPerfDielectric(thickness=0.1)
+    d_4_5 = HighPerfDielectric(thickness=_DIELECTRIC_THICKNESS)
     L5_Signal5 = HighPerfCopper(thickness=0.0175, name="L5-Signal5")
-    d_5_6 = HighPerfDielectric(thickness=0.1)
+    d_5_6 = HighPerfDielectric(thickness=_DIELECTRIC_THICKNESS)
     L6_GPlane6 = HighPerfCopper(thickness=0.0175, name="L6-GPlane6")
-    d_6_7 = HighPerfDielectric(thickness=0.1)
+    d_6_7 = HighPerfDielectric(thickness=_DIELECTRIC_THICKNESS)
     L7_Signal7 = HighPerfCopper(thickness=0.0175, name="L7-Signal7")
-    d_7_8 = HighPerfDielectric(thickness=0.1)
+    d_7_8 = HighPerfDielectric(thickness=_DIELECTRIC_THICKNESS)
     L8_GPlane8 = HighPerfCopper(thickness=0.0175, name="L8-GPlane8")
 
     # Center dielectric — thick core, full thickness mirrored below.
@@ -248,22 +250,22 @@ _FENCE = ViaFencePattern(pitch=0.5, offset=0.43, num_rows=1)
 # should pull from here rather than from the routing structures, which
 # are opaque structural objects.
 
-INNER_SE_40_TRACE_WIDTH: float = 0.165
+INNER_SE_40_TRACE_WIDTH: float = 0.1405
 "Inner-stripline SE 40 Ω trace width (mm). LPDDR5 DQ/DMI/CA/CSn per AMD UG863."
 
-INNER_SE_40_NECK_DOWN_WIDTH: float = 0.13
-"Inner-stripline SE 40 Ω neckdown width (mm)."
+INNER_SE_40_NECK_DOWN_WIDTH: float = 0.0995
+"Inner-stripline SE 50 Ω +/- 10% neckdown width (mm)."
 
-INNER_SE_50_TRACE_WIDTH: float = 0.13
+INNER_SE_50_TRACE_WIDTH: float = 0.0995
 "Inner-stripline SE 50 Ω trace width (mm). DDR5 SE, legacy LPDDR5 DQ."
 
-INNER_SE_50_NECK_DOWN_WIDTH: float = 0.10
+INNER_SE_50_NECK_DOWN_WIDTH: float = 0.080
 "Inner-stripline SE 50 Ω neckdown width (mm)."
 
-INNER_DIFF_75_TRACE_WIDTH: float = 0.115
+INNER_DIFF_75_TRACE_WIDTH: float = 0.110
 "Inner-stripline 75 Ω diff trace width (mm). LPDDR5 CK/WCK/RDQS per AMD UG863."
 
-INNER_DIFF_75_PAIR_SPACING: float = 0.110
+INNER_DIFF_75_PAIR_SPACING: float = 0.08
 "Inner-stripline 75 Ω diff pair spacing (mm)."
 
 INNER_DIFF_85_TRACE_WIDTH: float = 0.10
@@ -278,10 +280,10 @@ INNER_DIFF_90_TRACE_WIDTH: float = 0.095
 INNER_DIFF_90_PAIR_SPACING: float = 0.150
 "Inner-stripline 90 Ω diff pair spacing (mm)."
 
-INNER_DIFF_100_TRACE_WIDTH: float = 0.085
+INNER_DIFF_100_TRACE_WIDTH: float = 0.0762
 "Inner-stripline 100 Ω diff trace width (mm). Legacy non-AMD-spec LPDDR5."
 
-INNER_DIFF_100_PAIR_SPACING: float = 0.165
+INNER_DIFF_100_PAIR_SPACING: float = 0.0762
 "Inner-stripline 100 Ω diff pair spacing (mm)."
 
 
@@ -293,7 +295,7 @@ INNER_DIFF_100_PAIR_SPACING: float = 0.165
 # dielectric thickness (0.1 mm). Hard-coded here rather than introspected
 # from the live stackup so the routing structures remain pure data — if
 # you change the stackup dielectric, update this constant to match.
-_H_STRIPLINE: float = 0.1
+_H_STRIPLINE: float = _DIELECTRIC_THICKNESS
 
 # UG863 "Outside SoC/DRAM" inter-net clearance multipliers in units of
 # H (the strictest applicable rule defines the per-layer routing-
@@ -707,6 +709,7 @@ class HighPerfSubstrate(Substrate):
             i: _se_layer(
                 INNER_SE_40_TRACE_WIDTH,
                 neck_down_trace_width=INNER_SE_40_NECK_DOWN_WIDTH,
+                neck_down_clearance=0.0762
             )
             for i in (2, 4, 6)
         }),
