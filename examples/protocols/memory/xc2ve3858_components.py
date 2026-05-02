@@ -36,7 +36,6 @@ from jitx.common import GPIO, Power
 from jitx.component import Component
 from jitx.net import DiffPair, Port
 from jitx.toleranced import Toleranced
-from jitx.transform import Transform
 from jitxlib.landpatterns.generators.bga import BGA
 from jitxlib.landpatterns.grid_planner import CornerCutGridPlanner
 from jitxlib.landpatterns.ipc import DensityLevel
@@ -4150,13 +4149,21 @@ class XC2VE3858Circuit(Circuit):
     vrefp = Port()   # comp.VREFP_500
     vrefn = Port()   # comp.VREFN_500
 
-    def __init__(self):
-        self.fpga = XC2VE3858()
+    def __init__(self, *, power_via: type | None = None):
+        """
+        Args:
+            power_via: Optional :py:class:`Via` class to drop on every
+                power and ground pad of the FPGA. When supplied, a via
+                of this type lands inside each GND / VCCINT / VCC_SOC /
+                VCC_AIE / VCC_FPD / VCCAUX / VCC_RAM / VCC_MMD pad and
+                ties into the wrapper's internal power net for that
+                rail. Keeping the via drop inside this wrapper means
+                the vias follow the FPGA's placement (rather than
+                being baked at the parent circuit's origin). Pass
+                ``None`` (default) to skip the via drops.
+        """
+        self.fpga = XC2VE3858().at(0.0, 0.0)
         fpga = self.fpga
-        # Place the FPGA component at this circuit's origin so it
-        # tracks whatever placement the parent design assigns to this
-        # XC2VE3858Circuit instance.
-        self.place(self.fpga, Transform.translate(0.0, 0.0))
 
         # Accumulator for all bundle-wiring Nets — JITX would discard
         # them as orphan references otherwise.
@@ -4643,6 +4650,54 @@ class XC2VE3858Circuit(Circuit):
             )
             for base_bank in X5IO_DDRMC_BASE_BANKS
         ]
+
+        # ====================================================================
+        # Power / ground via-on-pad drops. Vias attach to the wrapper's
+        # internal power nets, so they ride along with whatever placement
+        # the parent assigns to this circuit (no absolute geometry).
+        # ====================================================================
+        if power_via is not None:
+            from jitx_protocols_ext.protocols.memory.lpddr_constraints import (
+                drop_vias_on_net_pads,
+            )
+            net_via_map = {
+                "GND": power_via,
+                "VDD": power_via,
+                "VCC_SOC": power_via,
+                "VCC_AIE": power_via,
+                "VCC_FPD": power_via,
+                "VCCAUX": power_via,
+                "VCC_RAM": power_via,
+                "VCC_MMD": power_via,
+            }
+            net_to_ports = {
+                "GND": [*XC2VE3858.GND, *XC2VE3858.RSVDGND],
+                "VDD": [*XC2VE3858.VCCINT],
+                "VCC_SOC": [*XC2VE3858.VCC_SOC],
+                "VCC_AIE": [*XC2VE3858.VCC_AIE],
+                "VCC_FPD": [*XC2VE3858.VCC_FPD],
+                "VCCAUX": [*XC2VE3858.VCCAUX],
+                "VCC_RAM": [*XC2VE3858.VCC_RAM],
+                "VCC_MMD": [*XC2VE3858.VCC_MMD],
+            }
+            nets = {
+                "GND": self.gnd_net,
+                "VDD": self.net_vccint,
+                "VCC_SOC": self.net_vcc_soc,
+                "VCC_AIE": self.net_vcc_aie,
+                "VCC_FPD": self.net_vcc_fpd,
+                "VCCAUX": self.net_vccaux,
+                "VCC_RAM": self.net_vcc_ram,
+                "VCC_MMD": self.net_vcc_mmd,
+            }
+            # Pass `self` (the wrapper Circuit) — the helper's
+            # `visit(..., Component)` descends INTO the wrapper to
+            # find the live FPGA component. Passing `self.fpga`
+            # directly yields zero hits because `visit` enumerates
+            # descendants only and does not include the root.
+            self.pwr_via_drops = drop_vias_on_net_pads(
+                self, net_via_map, net_to_ports, nets,
+            )
 
     # ------------------------------------------------------------------
     # LPDDR5 mapping construction

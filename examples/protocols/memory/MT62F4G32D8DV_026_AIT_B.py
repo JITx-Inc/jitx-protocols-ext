@@ -11,7 +11,6 @@ from jitx.common import Power
 from jitx.component import Component
 from jitx.net import Port
 from jitx.toleranced import Toleranced
-from jitx.transform import Transform
 from jitxlib.landpatterns.generators.bga import BGA
 from jitxlib.landpatterns.ipc import DensityLevel
 from jitxlib.landpatterns.package import RectanglePackage
@@ -505,12 +504,20 @@ class LPDDR5MemoryCircuit(Circuit):
     pwr_vddq = Power()
     zq = Port()
 
-    def __init__(self):
-        self.mem = MT62F4G32D8DV_026_AIT_B()
-        # Place the memory component at this circuit's origin so it
-        # tracks whatever placement the parent design assigns to this
-        # LPDDR5MemoryCircuit instance.
-        self.place(self.mem, Transform.translate(0.0, 0.0))
+    def __init__(self, *, power_via: type | None = None):
+        """
+        Args:
+            power_via: Optional :py:class:`Via` class to drop on every
+                power and ground pad of the DRAM. When supplied, a via
+                of this type lands inside each VSS / VDD1 / VDD2H /
+                VDD2L / VDDQ pad and ties into the wrapper's internal
+                power net for that rail. Keeping the via drop inside
+                this wrapper means the vias follow the memory's
+                placement (rather than being baked at the parent
+                circuit's origin). Pass ``None`` (default) to skip the
+                via drops.
+        """
+        self.mem = MT62F4G32D8DV_026_AIT_B().at(0.0, 0.0)
 
         # Power rail wiring — all rails share VSS ground
         self.vss_net = Net(
@@ -542,6 +549,43 @@ class LPDDR5MemoryCircuit(Circuit):
         self._lpddr5_provide = Provide(LPDDR5(LPDDR5Width.x32, LPDDR5Rank.DualRank)).one_of(
             lambda b: [self._create_lpddr5_mapping(b)]
         )
+
+        # ====================================================================
+        # Power / ground via-on-pad drops. Vias attach to the wrapper's
+        # internal power nets, so they ride along with whatever placement
+        # the parent assigns to this circuit (no absolute geometry).
+        # ====================================================================
+        if power_via is not None:
+            from jitx_protocols_ext.protocols.memory.lpddr_constraints import (
+                drop_vias_on_net_pads,
+            )
+            net_via_map = {
+                "GND": power_via,
+                "VDD1": power_via,
+                "VDD2H": power_via,
+                "VDD2L": power_via,
+                "VDDQ": power_via,
+            }
+            net_to_ports = {
+                "GND": [*MT62F4G32D8DV_026_AIT_B.VSS],
+                "VDD1": [*MT62F4G32D8DV_026_AIT_B.VDD1],
+                "VDD2H": [*MT62F4G32D8DV_026_AIT_B.VDD2H],
+                "VDD2L": [*MT62F4G32D8DV_026_AIT_B.VDD2L],
+                "VDDQ": [*MT62F4G32D8DV_026_AIT_B.VDDQ],
+            }
+            nets = {
+                "GND": self.vss_net,
+                "VDD1": self.vdd1_net,
+                "VDD2H": self.vdd2h_net,
+                "VDD2L": self.vdd2l_net,
+                "VDDQ": self.vddq_net,
+            }
+            # Pass `self` (the wrapper Circuit) so the helper's
+            # `visit(..., Component)` can descend INTO the wrapper to
+            # find the live memory component.
+            self.pwr_via_drops = drop_vias_on_net_pads(
+                self, net_via_map, net_to_ports, nets,
+            )
 
     def _create_lpddr5_mapping(self, b: LPDDR5) -> dict:
         """Create mapping from LPDDR5 bundle to memory component pins"""
