@@ -256,6 +256,9 @@ INNER_SE_40_TRACE_WIDTH: float = 0.1405
 INNER_SE_40_NECK_DOWN_WIDTH: float = 0.0995
 "Inner-stripline SE 50 Ω +/- 10% neckdown width (mm)."
 
+INNER_SE_40_NECK_DOWN_CLEARANCE: float = 0.0762
+"Inner-stripline SE 40 Ω +/- 10% neckdown width (mm)."
+
 INNER_SE_50_TRACE_WIDTH: float = 0.0995
 "Inner-stripline SE 50 Ω trace width (mm). DDR5 SE, legacy LPDDR5 DQ."
 
@@ -433,8 +436,8 @@ def _diff_layers_3psh(
 def _se_layer(
     trace_width: float,
     *,
-    neck_down_trace_width: float | None = None,
     clearance: float | None = None,
+    neck_down_trace_width: float | None = None,
     neck_down_clearance: float | None = None,
 ) -> "RoutingStructure.Layer":
     """Build a fresh ``RoutingStructure.Layer`` (single-ended) with the
@@ -708,8 +711,9 @@ class HighPerfSubstrate(Substrate):
         layers=symmetric_routing_layers({
             i: _se_layer(
                 INNER_SE_40_TRACE_WIDTH,
+                clearance=_H_STRIPLINE * _H_MUL_DATA_SAME_BYTE,
                 neck_down_trace_width=INNER_SE_40_NECK_DOWN_WIDTH,
-                neck_down_clearance=0.0762
+                neck_down_clearance=INNER_SE_40_NECK_DOWN_CLEARANCE
             )
             for i in (2, 4, 6)
         }),

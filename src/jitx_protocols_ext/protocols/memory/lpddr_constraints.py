@@ -554,15 +554,16 @@ def make_lpddr_routing_rules(
     rules.append(design_constraint(RDQSTag()).trace_width(diff_trace_width))
 
     # Within-pair P/N spacing for each differential signal class.
-    rules.append(
-        design_constraint(CKTag(), CKTag()).clearance(diff_pair_spacing)
-    )
-    rules.append(
-        design_constraint(WCKTag(), WCKTag()).clearance(diff_pair_spacing)
-    )
-    rules.append(
-        design_constraint(RDQSTag(), RDQSTag()).clearance(diff_pair_spacing)
-    )
+    # This is not correct -- there are no differential constraints available through tags right now.
+    # rules.append(
+    #     design_constraint(CKTag(), CKTag()).clearance(diff_pair_spacing)
+    # )
+    # rules.append(
+    #     design_constraint(WCKTag(), WCKTag()).clearance(diff_pair_spacing)
+    # )
+    # rules.append(
+    #     design_constraint(RDQSTag(), RDQSTag()).clearance(diff_pair_spacing)
+    # )
 
     return rules
 
