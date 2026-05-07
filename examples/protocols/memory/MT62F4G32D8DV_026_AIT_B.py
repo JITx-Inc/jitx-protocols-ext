@@ -5,7 +5,7 @@ Translation of MT62F4G32D8DV-026_AIT_B.stanza from JITX Stanza component library
 16GB LPDDR5X SDRAM, 7500Mbps, 315-ball LFBGA, Automotive Grade
 """
 
-from jitx import Net, PadMapping, Provide
+from jitx import Net, PadMapping
 from jitx.circuit import Circuit
 from jitx.common import Power
 from jitx.component import Component
@@ -138,7 +138,6 @@ class MT62F4G32D8DV_026_AIT_B(Component):
     RFU = [Port() for _ in range(4)]
 
     landpattern = MT62F4G32D8DVLandpattern()
-    symbol = BoxSymbol()
 
     # Pad mapping based on Micron datasheet pinout (21x15 BGA)
     mapping = [
@@ -484,18 +483,30 @@ class MT62F4G32D8DV_026_AIT_B(Component):
         )
     ]
 
+    def __init__(self):
+        # Construct the symbol inside ``__init__`` so the auto-generation
+        # walker sees the component's ports already populated on the
+        # instance. A class-level ``symbol = BoxSymbol()`` would cause
+        # the walker to encounter the not-yet-instantiated ``symbol``
+        # attribute itself and fail.
+        self.symbol = BoxSymbol()
+
 
 class LPDDR5MemoryCircuit(Circuit):
     """LPDDR5 Memory Module with Provide() Pattern
 
-    Wraps MT62F4G32D8DV_026_AIT_B component with Provide() for LPDDR5 interface.
-    Uses LPDDR5 x32 DualRank configuration.
+    Wraps the MT62F4G32D8DV_026_AIT_B DRAM and exposes a fixed-mapping
+    ``lpddr5`` bundle port netted directly to the component pins. The
+    DRAM has no pin-assignment flexibility, so a ``Provide()`` /
+    ``require()`` round-trip is unnecessary — the controller side
+    (``XC2VE3858Circuit``) keeps Provide() for its DDRMC + packing +
+    bit-swap choices and consumes this bundle as the fixed end.
 
     Port mapping:
-    - d[0][0]: Channel A, Lane 0 (DQ_A[0-7])
-    - d[0][1]: Channel A, Lane 1 (DQ_A[8-15])
-    - d[1][0]: Channel B, Lane 0 (DQ_B[0-7])
-    - d[1][1]: Channel B, Lane 1 (DQ_B[8-15])
+    - lpddr5.d[0][0]: Channel A, Lane 0 (DQ_A[0-7])
+    - lpddr5.d[0][1]: Channel A, Lane 1 (DQ_A[8-15])
+    - lpddr5.d[1][0]: Channel B, Lane 0 (DQ_B[0-7])
+    - lpddr5.d[1][1]: Channel B, Lane 1 (DQ_B[8-15])
     """
 
     pwr_vdd1 = Power()
@@ -503,19 +514,56 @@ class LPDDR5MemoryCircuit(Circuit):
     pwr_vdd2l = Power()
     pwr_vddq = Power()
     zq = Port()
+    lpddr5 = LPDDR5(LPDDR5Width.x32, LPDDR5Rank.DualRank)
 
-    def __init__(self, *, power_via: type | None = None):
+    def __init__(
+        self,
+        *,
+        power_via: type | None = None,
+        byte_via_types: list | None = None,
+        cac_via_types: list | None = None,
+        reset_via: type | None = None,
+    ):
         """
         Args:
             power_via: Optional :py:class:`Via` class to drop on every
                 power and ground pad of the DRAM. When supplied, a via
                 of this type lands inside each VSS / VDD1 / VDD2H /
                 VDD2L / VDDQ pad and ties into the wrapper's internal
-                power net for that rail. Keeping the via drop inside
-                this wrapper means the vias follow the memory's
-                placement (rather than being baked at the parent
-                circuit's origin). Pass ``None`` (default) to skip the
-                via drops.
+                power net for that rail. Pass ``None`` (default) to
+                skip the power via drops.
+            byte_via_types: Optional list of 4 :py:class:`Via` classes,
+                one per byte lane. Each entry is dropped on every pad
+                in that byte lane (8 DQ + 2 WCK + 2 RDQS + 1 DMI = 13
+                pads) and tied to the corresponding component port
+                via :py:class:`PortAttachment`. Index convention:
+                ``byte_idx = ch_idx * 2 + lane_idx`` —
+
+                  ``[0]`` Channel A low byte (DQ_A[0-7])
+                  ``[1]`` Channel A high byte (DQ_A[8-15])
+                  ``[2]`` Channel B low byte (DQ_B[0-7])
+                  ``[3]`` Channel B high byte (DQ_B[8-15])
+
+                Pass ``None`` (default) to skip the byte-lane via drops.
+            cac_via_types: Optional list of 2 :py:class:`Via` classes,
+                one per channel's CAC group. Each entry is dropped on
+                every CAC pad in that channel — CK_p/n, CS[ranks],
+                CA[0..6] = 11 pads per channel.
+
+                  ``[0]`` Channel A CAC (CK_A, CS_A, CA_A)
+                  ``[1]`` Channel B CAC (CK_B, CS_B, CA_B)
+
+                Pass ``None`` (default) to skip the CAC via drops.
+            reset_via: Optional :py:class:`Via` class for the single
+                global ``RESET_N`` pad. Kept separate from
+                ``cac_via_types`` so RESET_N can use a different layer
+                target than the per-channel CAC. Pass ``None`` to
+                skip.
+
+            All signal vias are instantiated inside the wrapper and
+            tied to the live component-port proxy via PortAttachment,
+            so they ride along with the wrapper's placement (no
+            absolute geometry).
         """
         self.mem = MT62F4G32D8DV_026_AIT_B().at(0.0, 0.0)
 
@@ -546,9 +594,57 @@ class LPDDR5MemoryCircuit(Circuit):
         # ZQ calibration (not in LPDDR5 bundle)
         self.zq_net = self.zq + self.mem.ZQ_A
 
-        self._lpddr5_provide = Provide(LPDDR5(LPDDR5Width.x32, LPDDR5Rank.DualRank)).one_of(
-            lambda b: [self._create_lpddr5_mapping(b)]
-        )
+        # Direct LPDDR5 bundle wiring — fixed mapping per Micron
+        # datasheet, no Provide() / require() needed. Each leaf is
+        # connected to its component pin via `>>` so the connection
+        # is a TopologyNet and SI constraints (skew / loss / impedance)
+        # can be applied later on the controller→memory link.
+        b = self.lpddr5
+        m = self.mem
+        pairs: list[tuple] = [
+            (b.reset_n, m.RESET_N),
+            # Channel A
+            (b.ck[0].p, m.CK_t_A),
+            (b.ck[0].n, m.CK_c_A),
+            (b.cs[0][0], m.CS_A[0]),
+            (b.cs[0][1], m.CS_A[1]),
+            *((b.ca[0][i], m.CA_A[i]) for i in range(7)),
+            # Channel A, Lane 0 (DQ_A[0-7])
+            *((b.d[0][0].dq[i], m.DQ_A[i]) for i in range(8)),
+            (b.d[0][0].wck.p, m.WCK_t_A[0]),
+            (b.d[0][0].wck.n, m.WCK_c_A[0]),
+            (b.d[0][0].rdqs.p, m.RDQS_t_A[0]),
+            (b.d[0][0].rdqs.n, m.RDQS_c_A[0]),
+            (b.d[0][0].dmi, m.DMI_A[0]),
+            # Channel A, Lane 1 (DQ_A[8-15])
+            *((b.d[0][1].dq[i], m.DQ_A[8 + i]) for i in range(8)),
+            (b.d[0][1].wck.p, m.WCK_t_A[1]),
+            (b.d[0][1].wck.n, m.WCK_c_A[1]),
+            (b.d[0][1].rdqs.p, m.RDQS_t_A[1]),
+            (b.d[0][1].rdqs.n, m.RDQS_c_A[1]),
+            (b.d[0][1].dmi, m.DMI_A[1]),
+            # Channel B
+            (b.ck[1].p, m.CK_t_B),
+            (b.ck[1].n, m.CK_c_B),
+            (b.cs[1][0], m.CS_B[0]),
+            (b.cs[1][1], m.CS_B[1]),
+            *((b.ca[1][i], m.CA_B[i]) for i in range(7)),
+            # Channel B, Lane 0 (DQ_B[0-7])
+            *((b.d[1][0].dq[i], m.DQ_B[i]) for i in range(8)),
+            (b.d[1][0].wck.p, m.WCK_t_B[0]),
+            (b.d[1][0].wck.n, m.WCK_c_B[0]),
+            (b.d[1][0].rdqs.p, m.RDQS_t_B[0]),
+            (b.d[1][0].rdqs.n, m.RDQS_c_B[0]),
+            (b.d[1][0].dmi, m.DMI_B[0]),
+            # Channel B, Lane 1 (DQ_B[8-15])
+            *((b.d[1][1].dq[i], m.DQ_B[8 + i]) for i in range(8)),
+            (b.d[1][1].wck.p, m.WCK_t_B[1]),
+            (b.d[1][1].wck.n, m.WCK_c_B[1]),
+            (b.d[1][1].rdqs.p, m.RDQS_t_B[1]),
+            (b.d[1][1].rdqs.n, m.RDQS_c_B[1]),
+            (b.d[1][1].dmi, m.DMI_B[1]),
+        ]
+        self._lpddr5_topos = [leaf >> pin for leaf, pin in pairs]
 
         # ====================================================================
         # Power / ground via-on-pad drops. Vias attach to the wrapper's
@@ -559,6 +655,7 @@ class LPDDR5MemoryCircuit(Circuit):
             from jitx_protocols_ext.protocols.memory.lpddr_constraints import (
                 drop_vias_on_net_pads,
             )
+
             net_via_map = {
                 "GND": power_via,
                 "VDD1": power_via,
@@ -567,11 +664,11 @@ class LPDDR5MemoryCircuit(Circuit):
                 "VDDQ": power_via,
             }
             net_to_ports = {
-                "GND": [*MT62F4G32D8DV_026_AIT_B.VSS],
-                "VDD1": [*MT62F4G32D8DV_026_AIT_B.VDD1],
-                "VDD2H": [*MT62F4G32D8DV_026_AIT_B.VDD2H],
-                "VDD2L": [*MT62F4G32D8DV_026_AIT_B.VDD2L],
-                "VDDQ": [*MT62F4G32D8DV_026_AIT_B.VDDQ],
+                "GND": [*self.mem.VSS],
+                "VDD1": [*self.mem.VDD1],
+                "VDD2H": [*self.mem.VDD2H],
+                "VDD2L": [*self.mem.VDD2L],
+                "VDDQ": [*self.mem.VDDQ],
             }
             nets = {
                 "GND": self.vss_net,
@@ -584,76 +681,109 @@ class LPDDR5MemoryCircuit(Circuit):
             # `visit(..., Component)` can descend INTO the wrapper to
             # find the live memory component.
             self.pwr_via_drops = drop_vias_on_net_pads(
-                self, net_via_map, net_to_ports, nets,
+                self,
+                net_via_map,
+                net_to_ports,
+                nets,
             )
 
-    def _create_lpddr5_mapping(self, b: LPDDR5) -> dict:
-        """Create mapping from LPDDR5 bundle to memory component pins"""
-        mapping: dict = {}
+        # ====================================================================
+        # Signal via-on-pad drops. Vias are tied to the live component
+        # port proxy via PortAttachment (TopologyNets don't accept
+        # `net += via`). Same wrapper-local geometry as the power vias
+        # above — placement follows the wrapper.
+        # ====================================================================
+        if byte_via_types is not None or cac_via_types is not None or reset_via is not None:
+            from jitx_protocols_ext.protocols.memory.lpddr_constraints import (
+                attach_signal_vias_on_pads,
+            )
 
-        # Reset
-        mapping[b.reset_n] = self.mem.RESET_N
+            if byte_via_types is None:
+                byte_via_types = [None, None, None, None]
+            if len(byte_via_types) != 4:
+                raise ValueError(
+                    f"byte_via_types must have length 4 (one per byte lane); "
+                    f"got {len(byte_via_types)}."
+                )
+            if cac_via_types is None:
+                cac_via_types = [None, None]
+            if len(cac_via_types) != 2:
+                raise ValueError(
+                    f"cac_via_types must have length 2 (one per channel); got {len(cac_via_types)}."
+                )
 
-        # ======= Channel 0 (A) =======
-        # CK
-        mapping[b.ck[0].p] = self.mem.CK_t_A
-        mapping[b.ck[0].n] = self.mem.CK_c_A
+            # Build port lists from the LIVE component proxy (`self.mem`)
+            # so identity matches the pooled proxies the helper will
+            # see via PadMapping introspection.
+            mc = self.mem
+            byte_groups = [
+                [
+                    *[mc.DQ_A[i] for i in range(8)],
+                    mc.WCK_t_A[0],
+                    mc.WCK_c_A[0],
+                    mc.RDQS_t_A[0],
+                    mc.RDQS_c_A[0],
+                    mc.DMI_A[0],
+                ],
+                [
+                    *[mc.DQ_A[8 + i] for i in range(8)],
+                    mc.WCK_t_A[1],
+                    mc.WCK_c_A[1],
+                    mc.RDQS_t_A[1],
+                    mc.RDQS_c_A[1],
+                    mc.DMI_A[1],
+                ],
+                [
+                    *[mc.DQ_B[i] for i in range(8)],
+                    mc.WCK_t_B[0],
+                    mc.WCK_c_B[0],
+                    mc.RDQS_t_B[0],
+                    mc.RDQS_c_B[0],
+                    mc.DMI_B[0],
+                ],
+                [
+                    *[mc.DQ_B[8 + i] for i in range(8)],
+                    mc.WCK_t_B[1],
+                    mc.WCK_c_B[1],
+                    mc.RDQS_t_B[1],
+                    mc.RDQS_c_B[1],
+                    mc.DMI_B[1],
+                ],
+            ]
+            # Per-channel CAC port groups — CK + CS + CA for each
+            # channel. RESET_N is global and uses its own `reset_via`.
+            cac_groups = [
+                [
+                    mc.CK_t_A,
+                    mc.CK_c_A,
+                    *[mc.CS_A[i] for i in range(2)],
+                    *[mc.CA_A[i] for i in range(7)],
+                ],
+                [
+                    mc.CK_t_B,
+                    mc.CK_c_B,
+                    *[mc.CS_B[i] for i in range(2)],
+                    *[mc.CA_B[i] for i in range(7)],
+                ],
+            ]
 
-        # CS (2 ranks)
-        mapping[b.cs[0][0]] = self.mem.CS_A[0]
-        mapping[b.cs[0][1]] = self.mem.CS_A[1]
+            port_via_map: dict = {}
+            for byte_idx, ports in enumerate(byte_groups):
+                via_class = byte_via_types[byte_idx]
+                if via_class is None:
+                    continue
+                for port in ports:
+                    port_via_map[port] = via_class
+            for ch_idx, ports in enumerate(cac_groups):
+                via_class = cac_via_types[ch_idx]
+                if via_class is None:
+                    continue
+                for port in ports:
+                    port_via_map[port] = via_class
+            if reset_via is not None:
+                port_via_map[mc.RESET_N] = reset_via
 
-        # CA (7 bits)
-        for i in range(7):
-            mapping[b.ca[0][i]] = self.mem.CA_A[i]
-
-        # Data Lane 0: DQ_A[0-7], WCK0, RDQS0, DMI0
-        for i in range(8):
-            mapping[b.d[0][0].dq[i]] = self.mem.DQ_A[i]
-        mapping[b.d[0][0].wck.p] = self.mem.WCK_t_A[0]
-        mapping[b.d[0][0].wck.n] = self.mem.WCK_c_A[0]
-        mapping[b.d[0][0].rdqs.p] = self.mem.RDQS_t_A[0]
-        mapping[b.d[0][0].rdqs.n] = self.mem.RDQS_c_A[0]
-        mapping[b.d[0][0].dmi] = self.mem.DMI_A[0]
-
-        # Data Lane 1: DQ_A[8-15], WCK1, RDQS1, DMI1
-        for i in range(8):
-            mapping[b.d[0][1].dq[i]] = self.mem.DQ_A[8 + i]
-        mapping[b.d[0][1].wck.p] = self.mem.WCK_t_A[1]
-        mapping[b.d[0][1].wck.n] = self.mem.WCK_c_A[1]
-        mapping[b.d[0][1].rdqs.p] = self.mem.RDQS_t_A[1]
-        mapping[b.d[0][1].rdqs.n] = self.mem.RDQS_c_A[1]
-        mapping[b.d[0][1].dmi] = self.mem.DMI_A[1]
-
-        # ======= Channel 1 (B) =======
-        # CK
-        mapping[b.ck[1].p] = self.mem.CK_t_B
-        mapping[b.ck[1].n] = self.mem.CK_c_B
-
-        # CS (2 ranks)
-        mapping[b.cs[1][0]] = self.mem.CS_B[0]
-        mapping[b.cs[1][1]] = self.mem.CS_B[1]
-
-        # CA (7 bits)
-        for i in range(7):
-            mapping[b.ca[1][i]] = self.mem.CA_B[i]
-
-        # Data Lane 0: DQ_B[0-7], WCK0, RDQS0, DMI0
-        for i in range(8):
-            mapping[b.d[1][0].dq[i]] = self.mem.DQ_B[i]
-        mapping[b.d[1][0].wck.p] = self.mem.WCK_t_B[0]
-        mapping[b.d[1][0].wck.n] = self.mem.WCK_c_B[0]
-        mapping[b.d[1][0].rdqs.p] = self.mem.RDQS_t_B[0]
-        mapping[b.d[1][0].rdqs.n] = self.mem.RDQS_c_B[0]
-        mapping[b.d[1][0].dmi] = self.mem.DMI_B[0]
-
-        # Data Lane 1: DQ_B[8-15], WCK1, RDQS1, DMI1
-        for i in range(8):
-            mapping[b.d[1][1].dq[i]] = self.mem.DQ_B[8 + i]
-        mapping[b.d[1][1].wck.p] = self.mem.WCK_t_B[1]
-        mapping[b.d[1][1].wck.n] = self.mem.WCK_c_B[1]
-        mapping[b.d[1][1].rdqs.p] = self.mem.RDQS_t_B[1]
-        mapping[b.d[1][1].rdqs.n] = self.mem.RDQS_c_B[1]
-        mapping[b.d[1][1].dmi] = self.mem.DMI_B[1]
-
-        return mapping
+            self.signal_via_drops = attach_signal_vias_on_pads(
+                self,
+                port_via_map,
+            )

@@ -25,9 +25,9 @@ from .xc2ve3858_components import XC2VE3858Circuit
 
 
 # 0-indexed conductor layers that should carry a board-wide GND pour.
-# In the 16-layer HighPerfStackup these are exactly the dedicated GND
-# planes (L2, L4, L6, L8 above d_center; L9, L11, L13, L15 below).
-GND_POUR_LAYERS: tuple[int, ...] = (1, 3, 5, 7, 8, 10, 12, 14)
+# In the 20-layer HighPerfStackup these are exactly the dedicated GND
+# planes (L2, L4, L6, L8, L10 above d_center; L11, L13, L15, L17, L19 below).
+GND_POUR_LAYERS: tuple[int, ...] = (1, 3, 5, 7, 9, 10, 12, 14, 16, 18)
 
 
 class XC2VE3858LPDDR5ExampleCircuit(Circuit):
@@ -41,8 +41,30 @@ class XC2VE3858LPDDR5ExampleCircuit(Circuit):
         # by the user / layout backend. Power/ground via drops happen
         # inside each wrapper (via `power_via=`) so the vias travel
         # with whichever placement is chosen.
+        #
+        # Memory signal-pad vias select fanout layer per AMD UG863:
+        #   byte 0 (Ch A low)  → uVia_L1_L5
+        #   byte 1 (Ch A high) → uVia_L1_L3
+        #   byte 2 (Ch B low)  → uVia_L1_L5
+        #   byte 3 (Ch B high) → uVia_L1_L3
+        #   CAC Ch A (CK/CS/CA_A) → uVia_L1_L7
+        #   CAC Ch B (CK/CS/CA_B) → uVia_L1_L9
+        #   RESET_N               → uVia_L1_L9
         self.fpga = XC2VE3858Circuit(power_via=HighPerfSubstrate.TH_Via_Pwr)
-        self.memory = LPDDR5MemoryCircuit(power_via=HighPerfSubstrate.TH_Via_Pwr)
+        self.memory = LPDDR5MemoryCircuit(
+            power_via=HighPerfSubstrate.TH_Via_Pwr,
+            byte_via_types=[
+                HighPerfSubstrate.uVia_L1_L5,  # byte 0: Ch A low
+                HighPerfSubstrate.uVia_L1_L3,  # byte 1: Ch A high
+                HighPerfSubstrate.uVia_L1_L5,  # byte 2: Ch B low
+                HighPerfSubstrate.uVia_L1_L3,  # byte 3: Ch B high
+            ],
+            cac_via_types=[
+                HighPerfSubstrate.uVia_L1_L7,  # CAC Channel A
+                HighPerfSubstrate.uVia_L1_L9,  # CAC Channel B
+            ],
+            reset_via=HighPerfSubstrate.uVia_L1_L9,
+        )
         self.fpga.at(floating=True)
         self.memory.at(floating=True)
 
@@ -85,7 +107,10 @@ class XC2VE3858LPDDR5ExampleCircuit(Circuit):
         )
 
         ctrl_io = self.fpga.require(LPDDR5(LPDDR5Width.x32, LPDDR5Rank.DualRank))
-        mem_io = self.memory.require(LPDDR5(LPDDR5Width.x32, LPDDR5Rank.DualRank))
+        # Memory exposes a fixed-mapping `lpddr5` bundle directly; no
+        # require() needed because there is no pin-assignment choice
+        # on the DRAM side.
+        mem_io = self.memory.lpddr5
 
         # `ReferencePlanes(self.GND)` (all-form) tells JITX that every
         # reference-layer slot demanded by the LPDDR5 routing

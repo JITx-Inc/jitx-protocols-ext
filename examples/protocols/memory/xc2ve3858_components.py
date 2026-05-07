@@ -971,7 +971,6 @@ class XC2VE3858(Component):
     VREFP_500 = Port()
 
     landpattern = SSVA2112BGALandpattern()
-    symbol = BoxSymbol()
 
     mapping = [
         PadMapping(
@@ -3836,6 +3835,14 @@ class XC2VE3858(Component):
         )
     ]
 
+    def __init__(self):
+        # `BoxSymbol` is constructed inside ``__init__`` so the ports
+        # are already set on the instance when the auto-generation pass
+        # walks them. Defining it as a class attribute would cause the
+        # auto-walker to encounter the not-yet-instantiated ``symbol``
+        # attribute itself and fail.
+        self.symbol = BoxSymbol()
+
 
 class LPDDR5Packing(Enum):
     """LPDDR5 pinout packing style for the XC2VE3858 X5IO DDR controllers.
@@ -3879,10 +3886,18 @@ def _make_dqbit_class(name: str) -> type[DQBit]:
 
 # Pin name template helpers — mirror stanza `to-x5io-pin-name`.
 _X5IO_MC_LOOKUP: dict[int, tuple[int, int]] = {
-    700: (0, 0), 701: (0, 1), 702: (0, 2),
-    703: (1, 3), 704: (1, 4), 705: (1, 5),
-    710: (2, 0), 711: (2, 1), 712: (2, 2),
-    713: (3, 3), 714: (3, 4), 715: (3, 5),
+    700: (0, 0),
+    701: (0, 1),
+    702: (0, 2),
+    703: (1, 3),
+    704: (1, 4),
+    705: (1, 5),
+    710: (2, 0),
+    711: (2, 1),
+    712: (2, 2),
+    713: (3, 3),
+    714: (3, 4),
+    715: (3, 5),
 }
 
 
@@ -3944,13 +3959,18 @@ _DQ_LANES_HI = (8, 10, 12, 14)
 
 _LPDDR5_OPTIMUM_CFG: _DdrmcCfg = (
     (  # channel 0
-        (2, 5, 1, 7, _DQ_LANES_LO),   # lane 0: bank+2, wck=5, rdqs=1, dmi=7
+        (2, 5, 1, 7, _DQ_LANES_LO),  # lane 0: bank+2, wck=5, rdqs=1, dmi=7
         (2, 13, 9, 11, _DQ_LANES_HI),  # lane 1: bank+2, wck=13, rdqs=9, dmi=11
         ((1, 10, "P"), (1, 11, "P")),  # cs[0], cs[1]
-        (1, 15),                        # ck: bank+1, lane 15
+        (1, 15),  # ck: bank+1, lane 15
         (
-            (1, 8, "P"), (1, 8, "N"), (1, 12, "P"), (1, 12, "N"),
-            (1, 13, "P"), (1, 14, "P"), (1, 14, "N"),
+            (1, 8, "P"),
+            (1, 8, "N"),
+            (1, 12, "P"),
+            (1, 12, "N"),
+            (1, 13, "P"),
+            (1, 14, "P"),
+            (1, 14, "N"),
         ),
     ),
     (  # channel 1
@@ -3959,8 +3979,13 @@ _LPDDR5_OPTIMUM_CFG: _DdrmcCfg = (
         ((1, 10, "N"), (1, 11, "N")),
         (1, 9),
         (
-            (1, 0, "N"), (1, 1, "P"), (1, 2, "P"), (1, 4, "N"),
-            (1, 5, "P"), (1, 6, "P"), (1, 6, "N"),
+            (1, 0, "N"),
+            (1, 1, "P"),
+            (1, 2, "P"),
+            (1, 4, "N"),
+            (1, 5, "P"),
+            (1, 6, "P"),
+            (1, 6, "N"),
         ),
     ),
     (1, 4, "P"),  # reset_n
@@ -3974,8 +3999,13 @@ _LPDDR5_PACKED_LEFT_CFG: _DdrmcCfg = (
         ((1, 3, "P"), (2, 2, "P")),
         (1, 15),
         (
-            (1, 11, "N"), (0, 15, "N"), (0, 15, "P"), (0, 11, "N"),
-            (0, 7, "N"), (0, 7, "P"), (0, 3, "N"),
+            (1, 11, "N"),
+            (0, 15, "N"),
+            (0, 15, "P"),
+            (0, 11, "N"),
+            (0, 7, "N"),
+            (0, 7, "P"),
+            (0, 3, "N"),
         ),
     ),
     (  # channel 1
@@ -3984,8 +4014,13 @@ _LPDDR5_PACKED_LEFT_CFG: _DdrmcCfg = (
         ((1, 3, "N"), (2, 2, "N")),
         (2, 1),
         (
-            (2, 7, "N"), (2, 7, "P"), (2, 6, "N"), (2, 6, "P"),
-            (2, 5, "P"), (2, 4, "N"), (2, 4, "P"),
+            (2, 7, "N"),
+            (2, 7, "P"),
+            (2, 6, "N"),
+            (2, 6, "P"),
+            (2, 5, "P"),
+            (2, 4, "N"),
+            (2, 4, "P"),
         ),
     ),
     (1, 7, "N"),
@@ -3999,8 +4034,13 @@ _LPDDR5_PACKED_RIGHT_CFG: _DdrmcCfg = (
         ((0, 15, "P"), (0, 14, "P")),
         (1, 15),
         (
-            (1, 11, "N"), (1, 3, "N"), (1, 3, "P"), (2, 7, "N"),
-            (2, 11, "N"), (2, 11, "P"), (2, 15, "N"),
+            (1, 11, "N"),
+            (1, 3, "N"),
+            (1, 3, "P"),
+            (2, 7, "N"),
+            (2, 11, "N"),
+            (2, 11, "P"),
+            (2, 15, "N"),
         ),
     ),
     (  # channel 1
@@ -4009,8 +4049,13 @@ _LPDDR5_PACKED_RIGHT_CFG: _DdrmcCfg = (
         ((0, 15, "N"), (0, 14, "N")),
         (0, 13),
         (
-            (0, 11, "N"), (0, 11, "P"), (0, 10, "N"), (0, 10, "P"),
-            (0, 9, "P"), (0, 8, "N"), (0, 8, "P"),
+            (0, 11, "N"),
+            (0, 11, "P"),
+            (0, 10, "N"),
+            (0, 10, "P"),
+            (0, 9, "P"),
+            (0, 8, "N"),
+            (0, 8, "P"),
         ),
     ),
     (1, 7, "N"),
@@ -4028,6 +4073,22 @@ _LPDDR5_CFGS: dict[LPDDR5Packing, _DdrmcCfg] = {
 X5IO_DDRMC_BASE_BANKS: tuple[int, ...] = (700, 703, 707, 710, 713)
 
 
+# Pre-generated DQBit subclasses, one per (base_bank, byte_idx, packing).
+# JITX rejects dynamic class creation during instantiation, so the 60
+# distinct subclasses (5 DDRMCs × 4 byte lanes × 3 packings) needed by
+# the bit-swap pin-assignment scheme are created here at module load
+# time. Each pool of inner Provides keys off a unique class identity,
+# which is what the JITX solver uses to match Provides to require()s.
+_DQBIT_CLASSES: dict[tuple[int, int, LPDDR5Packing], type[DQBit]] = {
+    (base_bank, byte_idx, packing): _make_dqbit_class(
+        f"DQBit_{base_bank}_b{byte_idx}_{packing.name}"
+    )
+    for base_bank in X5IO_DDRMC_BASE_BANKS
+    for byte_idx in range(4)
+    for packing in LPDDR5Packing
+}
+
+
 # Versal bank lists — mirror stanza header constants.
 GTYP_BANKS: tuple[int, ...] = (105, 106, 107, 205, 206, 207)
 GTYP_MMI_BANKS: tuple[int, ...] = (105,)
@@ -4038,8 +4099,22 @@ MIPI_BANKS: tuple[int, ...] = (507,)
 X5IO_BANKS: tuple[int, ...] = tuple(range(700, 716))
 # VCCO_700 is shared between banks 700-704; banks 705+ each have their own.
 X5IO_VCCO_BANKS: tuple[int, ...] = (
-    700, 700, 700, 700, 700,
-    705, 706, 707, 708, 709, 710, 711, 712, 713, 714, 715,
+    700,
+    700,
+    700,
+    700,
+    700,
+    705,
+    706,
+    707,
+    708,
+    709,
+    710,
+    711,
+    712,
+    713,
+    714,
+    715,
 )
 
 
@@ -4144,10 +4219,10 @@ class XC2VE3858Circuit(Circuit):
     USB_AUX = DiffPair()
 
     # ---- SYSMON single-ended analog inputs (signals, not power) ----
-    vp = Port()      # comp.VP_500
-    vn = Port()      # comp.VN_500
-    vrefp = Port()   # comp.VREFP_500
-    vrefn = Port()   # comp.VREFN_500
+    vp = Port()  # comp.VP_500
+    vn = Port()  # comp.VN_500
+    vrefp = Port()  # comp.VREFP_500
+    vrefn = Port()  # comp.VREFN_500
 
     def __init__(self, *, power_via: type | None = None):
         """
@@ -4181,16 +4256,11 @@ class XC2VE3858Circuit(Circuit):
         # bank number — matches stanza's ``port FOO : foo-bundle[BANKS]``).
         # ====================================================================
         self.gtyp: dict[int, GTYPQuad] = {
-            bank: (GTYPMMIQuad() if bank in GTYP_MMI_BANKS else GTYPQuad())
-            for bank in GTYP_BANKS
+            bank: (GTYPMMIQuad() if bank in GTYP_MMI_BANKS else GTYPQuad()) for bank in GTYP_BANKS
         }
         self.io_hd: dict[int, HDIOBank] = {bank: HDIOBank() for bank in HDIO_BANKS}
-        self.pmc_mio: dict[int, PMCMioBank] = {
-            bank: PMCMioBank() for bank in PMC_MIO_BANKS
-        }
-        self.lpd_mio: dict[int, LPDMioBank] = {
-            bank: LPDMioBank() for bank in LPD_MIO_BANKS
-        }
+        self.pmc_mio: dict[int, PMCMioBank] = {bank: PMCMioBank() for bank in PMC_MIO_BANKS}
+        self.lpd_mio: dict[int, LPDMioBank] = {bank: LPDMioBank() for bank in LPD_MIO_BANKS}
         self.mipi: dict[int, MIPIPhy] = {bank: MIPIPhy() for bank in MIPI_BANKS}
         self.io_x5: dict[int, X5IOBank] = {bank: X5IOBank() for bank in X5IO_BANKS}
 
@@ -4246,32 +4316,44 @@ class XC2VE3858Circuit(Circuit):
             for lane in range(4):
                 lane_pair = quad.L[lane]
                 # TX
-                self._bundle_nets.append(Net(
-                    [lane_pair.TX.p, getattr(fpga, f"{prefix}TXP{lane}_{bank}")],
-                    name=f"{prefix}TXP{lane}_{bank}",
-                ))
-                self._bundle_nets.append(Net(
-                    [lane_pair.TX.n, getattr(fpga, f"{prefix}TXN{lane}_{bank}")],
-                    name=f"{prefix}TXN{lane}_{bank}",
-                ))
+                self._bundle_nets.append(
+                    Net(
+                        [lane_pair.TX.p, getattr(fpga, f"{prefix}TXP{lane}_{bank}")],
+                        name=f"{prefix}TXP{lane}_{bank}",
+                    )
+                )
+                self._bundle_nets.append(
+                    Net(
+                        [lane_pair.TX.n, getattr(fpga, f"{prefix}TXN{lane}_{bank}")],
+                        name=f"{prefix}TXN{lane}_{bank}",
+                    )
+                )
                 # RX
-                self._bundle_nets.append(Net(
-                    [lane_pair.RX.p, getattr(fpga, f"{prefix}RXP{lane}_{bank}")],
-                    name=f"{prefix}RXP{lane}_{bank}",
-                ))
-                self._bundle_nets.append(Net(
-                    [lane_pair.RX.n, getattr(fpga, f"{prefix}RXN{lane}_{bank}")],
-                    name=f"{prefix}RXN{lane}_{bank}",
-                ))
+                self._bundle_nets.append(
+                    Net(
+                        [lane_pair.RX.p, getattr(fpga, f"{prefix}RXP{lane}_{bank}")],
+                        name=f"{prefix}RXP{lane}_{bank}",
+                    )
+                )
+                self._bundle_nets.append(
+                    Net(
+                        [lane_pair.RX.n, getattr(fpga, f"{prefix}RXN{lane}_{bank}")],
+                        name=f"{prefix}RXN{lane}_{bank}",
+                    )
+                )
             for i in range(2):
-                self._bundle_nets.append(Net(
-                    [quad.REFCLK[i].p, getattr(fpga, f"{prefix}REFCLKP{i}_{bank}")],
-                    name=f"{prefix}REFCLKP{i}_{bank}",
-                ))
-                self._bundle_nets.append(Net(
-                    [quad.REFCLK[i].n, getattr(fpga, f"{prefix}REFCLKN{i}_{bank}")],
-                    name=f"{prefix}REFCLKN{i}_{bank}",
-                ))
+                self._bundle_nets.append(
+                    Net(
+                        [quad.REFCLK[i].p, getattr(fpga, f"{prefix}REFCLKP{i}_{bank}")],
+                        name=f"{prefix}REFCLKP{i}_{bank}",
+                    )
+                )
+                self._bundle_nets.append(
+                    Net(
+                        [quad.REFCLK[i].n, getattr(fpga, f"{prefix}REFCLKN{i}_{bank}")],
+                        name=f"{prefix}REFCLKN{i}_{bank}",
+                    )
+                )
 
         # ====================================================================
         # GTYP transceiver power-pin boundary nets (single Port → multi comp pin).
@@ -4283,8 +4365,7 @@ class XC2VE3858Circuit(Circuit):
             ("GTYP_RREF_L", self.GTYP_RREF_L, [fpga.GTYP_RREF_L]),
             ("GTYP_AVTTRCAL_RN", self.GTYP_AVTTRCAL_RN, [fpga.GTYP_AVTTRCAL_RN]),
             ("GTYP_RREF_RN", self.GTYP_RREF_RN, [fpga.GTYP_RREF_RN]),
-            ("GTYP_MMI_AVTTRCAL_RS", self.GTYP_MMI_AVTTRCAL_RS,
-             [fpga.GTYP_MMI_AVTTRCAL_RS]),
+            ("GTYP_MMI_AVTTRCAL_RS", self.GTYP_MMI_AVTTRCAL_RS, [fpga.GTYP_MMI_AVTTRCAL_RS]),
             ("GTYP_MMI_RREF_RS", self.GTYP_MMI_RREF_RS, [fpga.GTYP_MMI_RREF_RS]),
             # Multi-pin rails
             ("GTYP_AVCC_L", self.GTYP_AVCC_L, [*fpga.GTYP_AVCC_L]),
@@ -4295,8 +4376,7 @@ class XC2VE3858Circuit(Circuit):
             ("GTYP_AVCCAUX_RN", self.GTYP_AVCCAUX_RN, [*fpga.GTYP_AVCCAUX_RN]),
             ("GTYP_MMI_AVCC_RS", self.GTYP_MMI_AVCC_RS, [*fpga.GTYP_MMI_AVCC_RS]),
             ("GTYP_MMI_AVTT_RS", self.GTYP_MMI_AVTT_RS, [*fpga.GTYP_MMI_AVTT_RS]),
-            ("GTYP_MMI_AVCCAUX_RS", self.GTYP_MMI_AVCCAUX_RS,
-             [*fpga.GTYP_MMI_AVCCAUX_RS]),
+            ("GTYP_MMI_AVCCAUX_RS", self.GTYP_MMI_AVCCAUX_RS, [*fpga.GTYP_MMI_AVCCAUX_RS]),
         ]
         for name, port, pins in gtyp_pwr_groups:
             # Drop `name=` — JITX rejects a Net carrying the same public
@@ -4311,18 +4391,24 @@ class XC2VE3858Circuit(Circuit):
             hdio = self.io_hd[bank]
             for lane in range(11):
                 hdgc = "_HDGC" if 5 <= lane <= 6 else ""
-                self._bundle_nets.append(Net(
-                    [hdio.L[lane].p, getattr(fpga, f"IO_L{lane}P{hdgc}_{bank}")],
-                    name=f"IO_L{lane}P{hdgc}_{bank}",
-                ))
-                self._bundle_nets.append(Net(
-                    [hdio.L[lane].n, getattr(fpga, f"IO_L{lane}N{hdgc}_{bank}")],
-                    name=f"IO_L{lane}N{hdgc}_{bank}",
-                ))
-            self._bundle_nets.append(Net(
-                [hdio.VCCO.Vp, *getattr(fpga, f"VCCO_{bank}")],
-                name=f"VCCO_{bank}",
-            ))
+                self._bundle_nets.append(
+                    Net(
+                        [hdio.L[lane].p, getattr(fpga, f"IO_L{lane}P{hdgc}_{bank}")],
+                        name=f"IO_L{lane}P{hdgc}_{bank}",
+                    )
+                )
+                self._bundle_nets.append(
+                    Net(
+                        [hdio.L[lane].n, getattr(fpga, f"IO_L{lane}N{hdgc}_{bank}")],
+                        name=f"IO_L{lane}N{hdgc}_{bank}",
+                    )
+                )
+            self._bundle_nets.append(
+                Net(
+                    [hdio.VCCO.Vp, *getattr(fpga, f"VCCO_{bank}")],
+                    name=f"VCCO_{bank}",
+                )
+            )
             gnd_pins.append(hdio.VCCO.Vn)
 
         # ====================================================================
@@ -4334,14 +4420,18 @@ class XC2VE3858Circuit(Circuit):
             pmc = self.pmc_mio[bank]
             offset = (bank % 2) * 26
             for lane in range(26):
-                self._bundle_nets.append(Net(
-                    [pmc.P[lane], getattr(fpga, f"PMC_MIO{lane + offset}_{bank}")],
-                    name=f"PMC_MIO{lane + offset}_{bank}",
-                ))
-            self._bundle_nets.append(Net(
-                [pmc.VCCO.Vp, *getattr(fpga, f"VCCO_{bank}")],
-                name=f"VCCO_{bank}",
-            ))
+                self._bundle_nets.append(
+                    Net(
+                        [pmc.P[lane], getattr(fpga, f"PMC_MIO{lane + offset}_{bank}")],
+                        name=f"PMC_MIO{lane + offset}_{bank}",
+                    )
+                )
+            self._bundle_nets.append(
+                Net(
+                    [pmc.VCCO.Vp, *getattr(fpga, f"VCCO_{bank}")],
+                    name=f"VCCO_{bank}",
+                )
+            )
             gnd_pins.append(pmc.VCCO.Vn)
 
         # ====================================================================
@@ -4350,14 +4440,18 @@ class XC2VE3858Circuit(Circuit):
         for bank in LPD_MIO_BANKS:
             lpd = self.lpd_mio[bank]
             for lane in range(26):
-                self._bundle_nets.append(Net(
-                    [lpd.P[lane], getattr(fpga, f"LPD_MIO{lane}_{bank}")],
-                    name=f"LPD_MIO{lane}_{bank}",
-                ))
-            self._bundle_nets.append(Net(
-                [lpd.VCCO.Vp, *getattr(fpga, f"VCCO_{bank}")],
-                name=f"VCCO_{bank}",
-            ))
+                self._bundle_nets.append(
+                    Net(
+                        [lpd.P[lane], getattr(fpga, f"LPD_MIO{lane}_{bank}")],
+                        name=f"LPD_MIO{lane}_{bank}",
+                    )
+                )
+            self._bundle_nets.append(
+                Net(
+                    [lpd.VCCO.Vp, *getattr(fpga, f"VCCO_{bank}")],
+                    name=f"VCCO_{bank}",
+                )
+            )
             gnd_pins.append(lpd.VCCO.Vn)
 
         # ====================================================================
@@ -4367,43 +4461,61 @@ class XC2VE3858Circuit(Circuit):
         # ====================================================================
         for bank in MIPI_BANKS:
             mipi = self.mipi[bank]
-            self._bundle_nets.append(Net(
-                [mipi.RESREF, getattr(fpga, f"MIPI_RESREF_{bank}")],
-                name=f"MIPI_RESREF_{bank}",
-            ))
-            self._bundle_nets.append(Net(
-                [mipi.REFCLK.p, getattr(fpga, f"MIPI_REF_CLKP_{bank}")],
-                name=f"MIPI_REF_CLKP_{bank}",
-            ))
-            self._bundle_nets.append(Net(
-                [mipi.REFCLK.n, getattr(fpga, f"MIPI_REF_CLKN_{bank}")],
-                name=f"MIPI_REF_CLKN_{bank}",
-            ))
+            self._bundle_nets.append(
+                Net(
+                    [mipi.RESREF, getattr(fpga, f"MIPI_RESREF_{bank}")],
+                    name=f"MIPI_RESREF_{bank}",
+                )
+            )
+            self._bundle_nets.append(
+                Net(
+                    [mipi.REFCLK.p, getattr(fpga, f"MIPI_REF_CLKP_{bank}")],
+                    name=f"MIPI_REF_CLKP_{bank}",
+                )
+            )
+            self._bundle_nets.append(
+                Net(
+                    [mipi.REFCLK.n, getattr(fpga, f"MIPI_REF_CLKN_{bank}")],
+                    name=f"MIPI_REF_CLKN_{bank}",
+                )
+            )
             for lane in range(2):
-                self._bundle_nets.append(Net(
-                    [mipi.L[lane].TX.p, getattr(fpga, f"MIPI_TXDP{lane}_{bank}")],
-                    name=f"MIPI_TXDP{lane}_{bank}",
-                ))
-                self._bundle_nets.append(Net(
-                    [mipi.L[lane].TX.n, getattr(fpga, f"MIPI_TXDN{lane}_{bank}")],
-                    name=f"MIPI_TXDN{lane}_{bank}",
-                ))
-                self._bundle_nets.append(Net(
-                    [mipi.L[lane].RX.p, getattr(fpga, f"MIPI_RXDP{lane}_{bank}")],
-                    name=f"MIPI_RXDP{lane}_{bank}",
-                ))
-                self._bundle_nets.append(Net(
-                    [mipi.L[lane].RX.n, getattr(fpga, f"MIPI_RXDN{lane}_{bank}")],
-                    name=f"MIPI_RXDN{lane}_{bank}",
-                ))
-            self._bundle_nets.append(Net(
-                [mipi.VCCIO.Vp, *getattr(fpga, f"VCCIO_MIPI_{bank}")],
-                name=f"VCCIO_MIPI_{bank}",
-            ))
-            self._bundle_nets.append(Net(
-                [mipi.VCC.Vp, *getattr(fpga, f"VCC_MIPI_{bank}")],
-                name=f"VCC_MIPI_{bank}",
-            ))
+                self._bundle_nets.append(
+                    Net(
+                        [mipi.L[lane].TX.p, getattr(fpga, f"MIPI_TXDP{lane}_{bank}")],
+                        name=f"MIPI_TXDP{lane}_{bank}",
+                    )
+                )
+                self._bundle_nets.append(
+                    Net(
+                        [mipi.L[lane].TX.n, getattr(fpga, f"MIPI_TXDN{lane}_{bank}")],
+                        name=f"MIPI_TXDN{lane}_{bank}",
+                    )
+                )
+                self._bundle_nets.append(
+                    Net(
+                        [mipi.L[lane].RX.p, getattr(fpga, f"MIPI_RXDP{lane}_{bank}")],
+                        name=f"MIPI_RXDP{lane}_{bank}",
+                    )
+                )
+                self._bundle_nets.append(
+                    Net(
+                        [mipi.L[lane].RX.n, getattr(fpga, f"MIPI_RXDN{lane}_{bank}")],
+                        name=f"MIPI_RXDN{lane}_{bank}",
+                    )
+                )
+            self._bundle_nets.append(
+                Net(
+                    [mipi.VCCIO.Vp, *getattr(fpga, f"VCCIO_MIPI_{bank}")],
+                    name=f"VCCIO_MIPI_{bank}",
+                )
+            )
+            self._bundle_nets.append(
+                Net(
+                    [mipi.VCC.Vp, *getattr(fpga, f"VCC_MIPI_{bank}")],
+                    name=f"VCC_MIPI_{bank}",
+                )
+            )
             gnd_pins.append(mipi.VCCIO.Vn)
             gnd_pins.append(mipi.VCC.Vn)
 
@@ -4430,10 +4542,12 @@ class XC2VE3858Circuit(Circuit):
             x5io_vcco_groups.setdefault(vcco_bank, []).append(x5io.VCCO.Vp)
             gnd_pins.append(x5io.VCCO.Vn)
         for vcco_bank, vp_ports in x5io_vcco_groups.items():
-            self._bundle_nets.append(Net(
-                [*vp_ports, *getattr(fpga, f"VCCO_{vcco_bank}")],
-                name=f"VCCO_{vcco_bank}",
-            ))
+            self._bundle_nets.append(
+                Net(
+                    [*vp_ports, *getattr(fpga, f"VCCO_{vcco_bank}")],
+                    name=f"VCCO_{vcco_bank}",
+                )
+            )
 
         # ====================================================================
         # Configuration bank 503 (single-ended boundary pins + JTAG + I3C/I2C).
@@ -4451,7 +4565,9 @@ class XC2VE3858Circuit(Circuit):
             setattr(self, f"net_{name.lower()}", Net([port, comp_pin], name=name))
 
         for i in range(4):
-            self._bundle_nets.append(Net([self.MODE[i], getattr(fpga, f"MODE{i}_503")], name=f"MODE{i}_503"))
+            self._bundle_nets.append(
+                Net([self.MODE[i], getattr(fpga, f"MODE{i}_503")], name=f"MODE{i}_503")
+            )
 
         # JTAG
         self._bundle_nets.append(Net([self.jtag.tck, fpga.TCK_503], name="TCK_503"))
@@ -4460,14 +4576,20 @@ class XC2VE3858Circuit(Circuit):
         self._bundle_nets.append(Net([self.jtag.tms, fpga.TMS_503], name="TMS_503"))
 
         # I3C / I2C
-        self._bundle_nets.append(Net([self.i3c_i2c.scl, fpga.I3CI2C_SCL_503], name="I3CI2C_SCL_503"))
-        self._bundle_nets.append(Net([self.i3c_i2c.sda, fpga.I3CI2C_SDA_503], name="I3CI2C_SDA_503"))
+        self._bundle_nets.append(
+            Net([self.i3c_i2c.scl, fpga.I3CI2C_SCL_503], name="I3CI2C_SCL_503")
+        )
+        self._bundle_nets.append(
+            Net([self.i3c_i2c.sda, fpga.I3CI2C_SDA_503], name="I3CI2C_SDA_503")
+        )
 
         # Configuration-bank VCCO — single boundary Port tied to comp pins.
         # No `name=`: boundary Port already owns the public name.
-        self._bundle_nets.append(Net(
-            [self.VCCO_503, *fpga.VCCO_503],
-        ))
+        self._bundle_nets.append(
+            Net(
+                [self.VCCO_503, *fpga.VCCO_503],
+            )
+        )
 
         # ====================================================================
         # USB AUX, USB2 connector, USB3 (gtr-usb3 bundle), USB2_TXRTUNE.
@@ -4476,14 +4598,18 @@ class XC2VE3858Circuit(Circuit):
         self._bundle_nets.append(Net([self.USB_AUX.n, fpga.USB_AUXN_504], name="USB_AUXN_504"))
 
         # USB2 connector
-        self._bundle_nets.append(Net([self.usb2.vbus.Vp, fpga.USB2_VBUS0_504], name="USB2_VBUS0_504"))
+        self._bundle_nets.append(
+            Net([self.usb2.vbus.Vp, fpga.USB2_VBUS0_504], name="USB2_VBUS0_504")
+        )
         gnd_pins.append(self.usb2.vbus.Vn)
         # USB2 high-speed data — use `>>` so a topology constraint can
         # be applied later (skew, length match, impedance).
         self._bundle_nets.append(self.usb2.bus.data.p >> fpga.USB2_DP0_504)
         self._bundle_nets.append(self.usb2.bus.data.n >> fpga.USB2_DN0_504)
         self._bundle_nets.append(Net([self.usb2.id, fpga.USB2_ID0_504], name="USB2_ID0_504"))
-        self._bundle_nets.append(Net([self.USB2_TXRTUNE, fpga.USB2_TXRTUNE_504], name="USB2_TXRTUNE_504"))
+        self._bundle_nets.append(
+            Net([self.USB2_TXRTUNE, fpga.USB2_TXRTUNE_504], name="USB2_TXRTUNE_504")
+        )
 
         # USB3 (GTRUSB3): REFCLK, RESREF, sparse TX[0,3] + TXRX[1,2], VCC, VCCIO
         # USB3 REFCLK + high-speed data lanes (TX[0,3] + TXRX[1,2]) —
@@ -4492,7 +4618,9 @@ class XC2VE3858Circuit(Circuit):
         # since it's a static reference resistor, not a routed signal.
         self._bundle_nets.append(self.usb3.REFCLK.p >> fpga.USB3_REF_CLKP_504)
         self._bundle_nets.append(self.usb3.REFCLK.n >> fpga.USB3_REF_CLKN_504)
-        self._bundle_nets.append(Net([self.usb3.RESREF, fpga.USB3_RESREF_504], name="USB3_RESREF_504"))
+        self._bundle_nets.append(
+            Net([self.usb3.RESREF, fpga.USB3_RESREF_504], name="USB3_RESREF_504")
+        )
         self._bundle_nets.append(self.usb3.TX[0].p >> fpga.USB3_TXP0_504)
         self._bundle_nets.append(self.usb3.TX[0].n >> fpga.USB3_TXN0_504)
         self._bundle_nets.append(self.usb3.TX[3].p >> fpga.USB3_TXP3_504)
@@ -4501,14 +4629,18 @@ class XC2VE3858Circuit(Circuit):
         self._bundle_nets.append(self.usb3.TXRX[1].n >> fpga.USB3_TXRXN1_504)
         self._bundle_nets.append(self.usb3.TXRX[2].p >> fpga.USB3_TXRXP2_504)
         self._bundle_nets.append(self.usb3.TXRX[2].n >> fpga.USB3_TXRXN2_504)
-        self._bundle_nets.append(Net(
-            [self.usb3.VCCIO.Vp, *fpga.VCCIO_USB3_504],
-            name="VCCIO_USB3_504",
-        ))
-        self._bundle_nets.append(Net(
-            [self.usb3.VCC.Vp, *fpga.VCC_USB3_504],
-            name="VCC_USB3_504",
-        ))
+        self._bundle_nets.append(
+            Net(
+                [self.usb3.VCCIO.Vp, *fpga.VCCIO_USB3_504],
+                name="VCCIO_USB3_504",
+            )
+        )
+        self._bundle_nets.append(
+            Net(
+                [self.usb3.VCC.Vp, *fpga.VCC_USB3_504],
+                name="VCC_USB3_504",
+            )
+        )
         gnd_pins.append(self.usb3.VCCIO.Vn)
         gnd_pins.append(self.usb3.VCC.Vn)
 
@@ -4535,20 +4667,22 @@ class XC2VE3858Circuit(Circuit):
 
         # Kelvin sense rails.
         sense_rails: list[tuple[str, "Power", "Port", "Port"]] = [
-            ("VCCINT_SENSE", self.pwr_vccint_sense,
-             fpga.VCCINT_SENSE, fpga.GND_VCCINT_SENSE),
-            ("VCC_AIE_SENSE", self.pwr_vcc_aie_sense,
-             fpga.VCC_AIE_SENSE, fpga.GND_VCC_AIE_SENSE),
-            ("VCC_FPD_SENSE", self.pwr_vcc_fpd_sense,
-             fpga.VCC_FPD_SENSE, fpga.GND_VCC_FPD_SENSE),
-            ("VCC_SOC_SENSE", self.pwr_vcc_soc_sense,
-             fpga.VCC_SOC_SENSE, fpga.GND_VCC_SOC_SENSE),
+            ("VCCINT_SENSE", self.pwr_vccint_sense, fpga.VCCINT_SENSE, fpga.GND_VCCINT_SENSE),
+            ("VCC_AIE_SENSE", self.pwr_vcc_aie_sense, fpga.VCC_AIE_SENSE, fpga.GND_VCC_AIE_SENSE),
+            ("VCC_FPD_SENSE", self.pwr_vcc_fpd_sense, fpga.VCC_FPD_SENSE, fpga.GND_VCC_FPD_SENSE),
+            ("VCC_SOC_SENSE", self.pwr_vcc_soc_sense, fpga.VCC_SOC_SENSE, fpga.GND_VCC_SOC_SENSE),
         ]
         for name, rail, vp_pin, vn_pin in sense_rails:
-            setattr(self, f"net_{name.lower()}",
-                    self._bundle_nets.append(Net([rail.Vp, vp_pin], name=name)))
-            setattr(self, f"net_gnd_{name.lower()}",
-                    self._bundle_nets.append(Net([rail.Vn, vn_pin], name=f"GND_{name}")))
+            setattr(
+                self,
+                f"net_{name.lower()}",
+                self._bundle_nets.append(Net([rail.Vp, vp_pin], name=name)),
+            )
+            setattr(
+                self,
+                f"net_gnd_{name.lower()}",
+                self._bundle_nets.append(Net([rail.Vn, vn_pin], name=f"GND_{name}")),
+            )
 
         # SYSMON analog single-ended boundary pins.
         self.net_vp = self.vp + fpga.VP_500
@@ -4566,10 +4700,14 @@ class XC2VE3858Circuit(Circuit):
         for bank in GTYP_BANKS:
             quad = self.gtyp[bank]
             for lane in range(4):
-                gpio_pins.extend([
-                    quad.L[lane].TX.p, quad.L[lane].TX.n,
-                    quad.L[lane].RX.p, quad.L[lane].RX.n,
-                ])
+                gpio_pins.extend(
+                    [
+                        quad.L[lane].TX.p,
+                        quad.L[lane].TX.n,
+                        quad.L[lane].RX.p,
+                        quad.L[lane].RX.n,
+                    ]
+                )
         for bank in HDIO_BANKS:
             for lane in range(11):
                 gpio_pins.extend([self.io_hd[bank].L[lane].p, self.io_hd[bank].L[lane].n])
@@ -4581,17 +4719,20 @@ class XC2VE3858Circuit(Circuit):
                 gpio_pins.append(self.lpd_mio[bank].P[pin_idx])
         for bank in MIPI_BANKS:
             for lane in range(2):
-                gpio_pins.extend([
-                    self.mipi[bank].L[lane].TX.p, self.mipi[bank].L[lane].TX.n,
-                    self.mipi[bank].L[lane].RX.p, self.mipi[bank].L[lane].RX.n,
-                ])
+                gpio_pins.extend(
+                    [
+                        self.mipi[bank].L[lane].TX.p,
+                        self.mipi[bank].L[lane].TX.n,
+                        self.mipi[bank].L[lane].RX.p,
+                        self.mipi[bank].L[lane].RX.n,
+                    ]
+                )
         for bank in X5IO_BANKS:
             for lane in range(16):
                 gpio_pins.extend([self.io_x5[bank].L[lane].p, self.io_x5[bank].L[lane].n])
 
         self.gpio_provides = [
-            Provide(GPIO).one_of(lambda b, pin=pin: [{b.gpio: pin}])
-            for pin in gpio_pins
+            Provide(GPIO).one_of(lambda b, pin=pin: [{b.gpio: pin}]) for pin in gpio_pins
         ]
 
         # ====================================================================
@@ -4608,14 +4749,14 @@ class XC2VE3858Circuit(Circuit):
         # require()s consuming it (one per DQ bit), so the solver only
         # has to permute within each pool — 8! permutations × 60 pools.
         # ====================================================================
-        self._dq_swap_classes: dict[tuple[int, int, LPDDR5Packing], type[DQBit]] = {}
+        self._dq_swap_classes: dict[tuple[int, int, LPDDR5Packing], type[DQBit]] = dict(
+            _DQBIT_CLASSES
+        )
         self._dq_swap_inner_provides: list = []
         for base_bank in X5IO_DDRMC_BASE_BANKS:
             for byte_idx in range(4):
                 for packing in LPDDR5Packing:
-                    cls_name = f"DQBit_{base_bank}_b{byte_idx}_{packing.name}"
-                    DQBitCls = _make_dqbit_class(cls_name)
-                    self._dq_swap_classes[(base_bank, byte_idx, packing)] = DQBitCls
+                    DQBitCls = self._dq_swap_classes[(base_bank, byte_idx, packing)]
 
                     # Compute the 8 candidate (bank, lane, polarity)
                     # sites for this byte lane in this packing.
@@ -4628,12 +4769,12 @@ class XC2VE3858Circuit(Circuit):
                     for dq_lane in dq_lanes:
                         for polarity in ("P", "N"):
                             pin = self._x5io_port(
-                                base_bank + sub_bank, dq_lane, polarity,
+                                base_bank + sub_bank,
+                                dq_lane,
+                                polarity,
                             )
                             self._dq_swap_inner_provides.append(
-                                Provide(DQBitCls).one_of(
-                                    lambda b, p=pin: [{b.p: p}]
-                                )
+                                Provide(DQBitCls).one_of(lambda b, p=pin: [{b.p: p}])
                             )
 
         # ====================================================================
@@ -4660,6 +4801,7 @@ class XC2VE3858Circuit(Circuit):
             from jitx_protocols_ext.protocols.memory.lpddr_constraints import (
                 drop_vias_on_net_pads,
             )
+
             net_via_map = {
                 "GND": power_via,
                 "VDD": power_via,
@@ -4671,14 +4813,14 @@ class XC2VE3858Circuit(Circuit):
                 "VCC_MMD": power_via,
             }
             net_to_ports = {
-                "GND": [*XC2VE3858.GND, *XC2VE3858.RSVDGND],
-                "VDD": [*XC2VE3858.VCCINT],
-                "VCC_SOC": [*XC2VE3858.VCC_SOC],
-                "VCC_AIE": [*XC2VE3858.VCC_AIE],
-                "VCC_FPD": [*XC2VE3858.VCC_FPD],
-                "VCCAUX": [*XC2VE3858.VCCAUX],
-                "VCC_RAM": [*XC2VE3858.VCC_RAM],
-                "VCC_MMD": [*XC2VE3858.VCC_MMD],
+                "GND": [*self.fpga.GND, *self.fpga.RSVDGND],
+                "VDD": [*self.fpga.VCCINT],
+                "VCC_SOC": [*self.fpga.VCC_SOC],
+                "VCC_AIE": [*self.fpga.VCC_AIE],
+                "VCC_FPD": [*self.fpga.VCC_FPD],
+                "VCCAUX": [*self.fpga.VCCAUX],
+                "VCC_RAM": [*self.fpga.VCC_RAM],
+                "VCC_MMD": [*self.fpga.VCC_MMD],
             }
             nets = {
                 "GND": self.gnd_net,
@@ -4696,7 +4838,10 @@ class XC2VE3858Circuit(Circuit):
             # directly yields zero hits because `visit` enumerates
             # descendants only and does not include the root.
             self.pwr_via_drops = drop_vias_on_net_pads(
-                self, net_via_map, net_to_ports, nets,
+                self,
+                net_via_map,
+                net_to_ports,
+                nets,
             )
 
     # ------------------------------------------------------------------
@@ -4708,9 +4853,7 @@ class XC2VE3858Circuit(Circuit):
         name = _to_x5io_pin_name(bank, lane, polarity)
         return getattr(self.fpga, name)
 
-    def _build_lpddr5_mapping(
-        self, b: LPDDR5, base_bank: int, packing: LPDDR5Packing
-    ) -> dict:
+    def _build_lpddr5_mapping(self, b: LPDDR5, base_bank: int, packing: LPDDR5Packing) -> dict:
         """Build a flat LPDDR5 → FPGA pin mapping for one DDRMC + packing.
 
         Implementation choice: **option (a) — flat per-packing mapping with
@@ -4870,4 +5013,3 @@ class XC2VE3858Circuit(Circuit):
                 )
 
         return mapping
-

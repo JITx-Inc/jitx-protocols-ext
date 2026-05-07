@@ -9,31 +9,36 @@ FPGA's heavy routing density needs.
 
 Stackup
 -------
-16 conductor layers, symmetric about a 0.8 mm core. One generic low-loss
+20 conductor layers, symmetric about a 0.8 mm core. One generic low-loss
 dielectric throughout (Dk 3.0, tan δ 0.004), 0.5 oz copper on every layer.
 
 Layer order (top to bottom)::
 
-    0   L1_Signal1   - top surface signal / BGA escape (microstrip)
-    1   L2_GPlane2   - GND reference above L3
-    2   L3_Signal3   - inner stripline #1 (shielded)
-    3   L4_GPlane4   - GND reference between L3 and L5
-    4   L5_Signal5   - inner stripline #2 (shielded)
-    5   L6_GPlane6   - GND reference between L5 and L7
-    6   L7_Signal7   - inner stripline #3 (shielded)
-    7   L8_GPlane8   - GND reference above d_center
-        d_center     - 0.8 mm core (Symmetric mirror)
-    -8  L9_GPlane8'  - GND reference below d_center
-    -7  L10_Signal7' - mirrored inner stripline #3 (shielded)
-    -6  L11_GPlane6' - GND reference
-    -5  L12_Signal5' - mirrored inner stripline #2 (shielded)
-    -4  L13_GPlane4' - GND reference
-    -3  L14_Signal3' - mirrored inner stripline #1 (shielded)
-    -2  L15_GPlane2' - GND reference below L14
-    -1  L16_Signal1' - bottom surface signal (microstrip)
+    0    L1_Signal1    - top surface signal / BGA escape (microstrip)
+    1    L2_GPlane2    - GND reference above L3
+    2    L3_Signal3    - inner stripline #1 (shielded)
+    3    L4_GPlane4    - GND reference between L3 and L5
+    4    L5_Signal5    - inner stripline #2 (shielded)
+    5    L6_GPlane6    - GND reference between L5 and L7
+    6    L7_Signal7    - inner stripline #3 (shielded)
+    7    L8_GPlane8    - GND reference between L7 and L9
+    8    L9_Signal9    - inner stripline #4 (shielded)
+    9    L10_GPlane10  - GND reference above d_center
+         d_center      - 0.8 mm core (Symmetric mirror)
+    -10  L11_GPlane10' - GND reference below d_center
+    -9   L12_Signal9'  - mirrored inner stripline #4 (shielded)
+    -8   L13_GPlane8'  - GND reference
+    -7   L14_Signal7'  - mirrored inner stripline #3 (shielded)
+    -6   L15_GPlane6'  - GND reference
+    -5   L16_Signal5'  - mirrored inner stripline #2 (shielded)
+    -4   L17_GPlane4'  - GND reference
+    -3   L18_Signal3'  - mirrored inner stripline #1 (shielded)
+    -2   L19_GPlane2'  - GND reference below L18
+    -1   L20_Signal1'  - bottom surface signal (microstrip)
 
-That's 6 shielded routing layers (L3, L5, L7 + their mirrors L10, L12, L14)
-plus 2 microstrip surface layers. Total board thickness ≈ 2.5 mm.
+That's 8 shielded routing layers (L3, L5, L7, L9 + their mirrors L12,
+L14, L16, L18) plus 2 microstrip surface layers. Total board thickness
+≈ 2.9 mm.
 
 Routing structures
 ------------------
@@ -56,11 +61,12 @@ Vias
 BGA escape (top-side)
     - ``uVia_L1_L3`` — L1 → L3 (shallowest stripline)
     - ``uVia_L1_L5`` — L1 → L5
-    - ``uVia_L1_L7`` — L1 → L7 (deepest stripline before core)
+    - ``uVia_L1_L7`` — L1 → L7
+    - ``uVia_L1_L9`` — L1 → L9 (deepest stripline before core)
 
 Half-stack GND stitching
-    - ``uStitch_L1_L8`` — every top-half GND plane (L1 ↔ L8)
-    - ``uStitch_L9_L16`` — every bottom-half GND plane (L9 ↔ L16)
+    - ``uStitch_L1_L10`` — every top-half GND plane (L1 ↔ L10)
+    - ``uStitch_L11_L20`` — every bottom-half GND plane (L11 ↔ L20)
 
 Mechanical through-hole
     - ``TH_Via`` — PTH components + top-to-bottom GND stitching
@@ -68,8 +74,10 @@ Mechanical through-hole
 
 Optional fence vias (defined on the substrate but **not** in the default
 ``HighPerfBoard.vias`` list)
-    - ``uFence_L2_L4``, ``uFence_L4_L6``, ``uFence_L6_L8`` — top half
-    - ``uFence_L9_L11``, ``uFence_L11_L13``, ``uFence_L13_L15`` — bottom half
+    - ``uFence_L2_L4``, ``uFence_L4_L6``, ``uFence_L6_L8``,
+      ``uFence_L8_L10`` — top half
+    - ``uFence_L11_L13``, ``uFence_L13_L15``, ``uFence_L15_L17``,
+      ``uFence_L17_L19`` — bottom half
 
     LPDDR5 routing per AMD UG863 doesn't require fence vias; we keep them
     out of the default board to reduce plate-copper and via inventory.
@@ -145,7 +153,7 @@ _VEL_STRIPLINE = phase_velocity(_DIELECTRIC_COEFFICIENT)
 
 
 class HighPerfStackup(Symmetric):
-    """16-layer symmetric stackup, 0.1 mm dielectrics + 0.8 mm core.
+    """20-layer symmetric stackup, 0.1 mm dielectrics + 0.8 mm core.
 
     Defined as a :py:class:`Symmetric` stackup — only the top half is
     listed; JITX mirrors it about ``d_center``.
@@ -159,13 +167,16 @@ class HighPerfStackup(Symmetric):
         L5  Signal5   - inner stripline #2 (shielded by L4 + L6)
         L6  GPlane6   - GND ref between L5 and L7
         L7  Signal7   - inner stripline #3 (shielded by L6 + L8)
-        L8  GPlane8   - GND ref above d_center
+        L8  GPlane8   - GND ref between L7 and L9
+        L9  Signal9   - inner stripline #4 (shielded by L8 + L10)
+        L10 GPlane10  - GND ref above d_center
         d_center      - 0.8 mm core (mirror plane)
 
-    The bottom half (L9..L16) mirrors L8..L1 in reverse — i.e. L9 = L8',
-    L10 = L7', ..., L16 = L1'. This gives 6 shielded routing layers
-    (L3, L5, L7 + their mirrors L14, L12, L10) plus 2 microstrip surface
-    layers (L1, L16). Total board thickness ≈ 2.5 mm.
+    The bottom half (L11..L20) mirrors L10..L1 in reverse — i.e.
+    L11 = L10', L12 = L9', L13 = L8', ..., L20 = L1'. This gives
+    8 shielded routing layers (L3, L5, L7, L9 + their mirrors L18, L16,
+    L14, L12) plus 2 microstrip surface layers (L1, L20). Total board
+    thickness ≈ 2.9 mm.
     """
 
     top_mask = HighPerfSolderMask(thickness=0.0127)
@@ -185,6 +196,10 @@ class HighPerfStackup(Symmetric):
     L7_Signal7 = HighPerfCopper(thickness=0.0175, name="L7-Signal7")
     d_7_8 = HighPerfDielectric(thickness=_DIELECTRIC_THICKNESS)
     L8_GPlane8 = HighPerfCopper(thickness=0.0175, name="L8-GPlane8")
+    d_8_9 = HighPerfDielectric(thickness=_DIELECTRIC_THICKNESS)
+    L9_Signal9 = HighPerfCopper(thickness=0.0175, name="L9-Signal9")
+    d_9_10 = HighPerfDielectric(thickness=_DIELECTRIC_THICKNESS)
+    L10_GPlane10 = HighPerfCopper(thickness=0.0175, name="L10-GPlane10")
 
     # Center dielectric — thick core, full thickness mirrored below.
     d_center = HighPerfDielectric(thickness=0.8, name="Core")
@@ -375,14 +390,14 @@ def _diff_layers_3psh(
     clearance: float | None = None,
     neck_clearance: float | None = None,
 ) -> dict[int, "DifferentialRoutingStructure.Layer"]:
-    """Build a 6-layer differential routing dict — 3 shielded layers per
-    side — covering the high-perf 16-layer stackup's full inner-stripline
+    """Build an 8-layer differential routing dict — 4 shielded layers per
+    side — covering the high-perf 20-layer stackup's full inner-stripline
     routing capacity.
 
     Layers populated:
 
-    - Top half: index ``2`` (L3), ``4`` (L5), ``6`` (L7)
-    - Bottom half: index ``-7`` (L10), ``-5`` (L12), ``-3`` (L14)
+    - Top half: index ``2`` (L3), ``4`` (L5), ``6`` (L7), ``8`` (L9)
+    - Bottom half: index ``-9`` (L12), ``-7`` (L14), ``-5`` (L16), ``-3`` (L18)
 
     Each layer references the GND plane immediately above and below it.
     Optional fence vias may be attached per layer through the ``fences``
@@ -393,7 +408,7 @@ def _diff_layers_3psh(
         pair_spacing: Centre-to-centre pair spacing (mm).
         fences: Optional dict from layer index to fence Via class.
             For consistent return-path control across the stack, supply
-            all 6 (one per shielded layer) — leave any out to skip
+            all 8 (one per shielded layer) — leave any out to skip
             fencing on that layer.
 
     Returns:
@@ -407,9 +422,11 @@ def _diff_layers_3psh(
         2: (1, 3),    # L3 fenced by GPlane2 / GPlane4
         4: (3, 5),    # L5 fenced by GPlane4 / GPlane6
         6: (5, 7),    # L7 fenced by GPlane6 / GPlane8
-        -7: (-8, -6), # L10 (mirror of L7) — GPlane9 / GPlane11
-        -5: (-6, -4), # L12 (mirror of L5) — GPlane11 / GPlane13
-        -3: (-4, -2), # L14 (mirror of L3) — GPlane13 / GPlane15
+        8: (7, 9),    # L9 fenced by GPlane8 / GPlane10
+        -9: (-10, -8), # L12 (mirror of L9) — GPlane11 / GPlane13
+        -7: (-8, -6), # L14 (mirror of L7) — GPlane13 / GPlane15
+        -5: (-6, -4), # L16 (mirror of L5) — GPlane15 / GPlane17
+        -3: (-4, -2), # L18 (mirror of L3) — GPlane17 / GPlane19
     }
 
     layers: dict[int, "DifferentialRoutingStructure.Layer"] = {}
@@ -540,6 +557,19 @@ class HighPerfSubstrate(Substrate):
         via_in_pad = True
         models = {(0, 6): PinModel(7e-12, 0.06)}
 
+    class uVia_L1_L9(Via):
+        """BGA-escape laser uVia from L1 (top) → L9 (shielded #4).
+        Spans 4 GND planes (L2/L4/L6/L8) and 8 dielectrics."""
+
+        type = ViaType.LaserDrill
+        start_layer = 0
+        stop_layer = 8
+        diameter = 0.25
+        hole_diameter = 0.1
+        filled = True
+        via_in_pad = True
+        models = {(0, 8): PinModel(9e-12, 0.08)}
+
     # Fence uVias — one per shielded signal layer, spanning the GND
     # planes immediately above and below it. Used by the diff-pair
     # routing structures via `.fence(...)`.
@@ -574,8 +604,28 @@ class HighPerfSubstrate(Substrate):
         hole_diameter = 0.1
         filled = True
 
-    class uFence_L9_L11(Via):
-        """Fence uVia spanning GPlane9 ↔ GPlane11 — fences L10 (mirror of L7)."""
+    class uFence_L8_L10(Via):
+        """Fence uVia spanning GPlane8 ↔ GPlane10 — fences L9 (top stripline #4)."""
+
+        type = ViaType.LaserDrill
+        start_layer = 7
+        stop_layer = 9
+        diameter = 0.25
+        hole_diameter = 0.1
+        filled = True
+
+    class uFence_L11_L13(Via):
+        """Fence uVia spanning GPlane11 ↔ GPlane13 — fences L12 (mirror of L9, bottom stripline #4)."""
+
+        type = ViaType.LaserDrill
+        start_layer = -10
+        stop_layer = -8
+        diameter = 0.25
+        hole_diameter = 0.1
+        filled = True
+
+    class uFence_L13_L15(Via):
+        """Fence uVia spanning GPlane13 ↔ GPlane15 — fences L14 (mirror of L7, bottom stripline #3)."""
 
         type = ViaType.LaserDrill
         start_layer = -8
@@ -584,8 +634,8 @@ class HighPerfSubstrate(Substrate):
         hole_diameter = 0.1
         filled = True
 
-    class uFence_L11_L13(Via):
-        """Fence uVia spanning GPlane11 ↔ GPlane13 — fences L12 (mirror of L5)."""
+    class uFence_L15_L17(Via):
+        """Fence uVia spanning GPlane15 ↔ GPlane17 — fences L16 (mirror of L5, bottom stripline #2)."""
 
         type = ViaType.LaserDrill
         start_layer = -6
@@ -594,8 +644,8 @@ class HighPerfSubstrate(Substrate):
         hole_diameter = 0.1
         filled = True
 
-    class uFence_L13_L15(Via):
-        """Fence uVia spanning GPlane13 ↔ GPlane15 — fences L14 (mirror of L3)."""
+    class uFence_L17_L19(Via):
+        """Fence uVia spanning GPlane17 ↔ GPlane19 — fences L18 (mirror of L3, bottom stripline #1)."""
 
         type = ViaType.LaserDrill
         start_layer = -4
@@ -608,22 +658,22 @@ class HighPerfSubstrate(Substrate):
     # so the engine can render via-stitched GND pours via the
     # `GndReturnTag().stitch_via(...)` rule defined in user circuits.
 
-    class uStitch_L1_L8(Via):
-        """Top-half GND stitch uVia (L1 ↔ L8) — full top-half plane stitching."""
+    class uStitch_L1_L10(Via):
+        """Top-half GND stitch uVia (L1 ↔ L10) — full top-half plane stitching."""
 
         type = ViaType.LaserDrill
         start_layer = 0
-        stop_layer = 7
+        stop_layer = 9
         diameter = 0.25
         hole_diameter = 0.1
         filled = True
         via_in_pad = True
 
-    class uStitch_L9_L16(Via):
-        """Bottom-half GND stitch uVia (L9 ↔ L16) — mirror of uStitch_L1_L8."""
+    class uStitch_L11_L20(Via):
+        """Bottom-half GND stitch uVia (L11 ↔ L20) — mirror of uStitch_L1_L10."""
 
         type = ViaType.LaserDrill
-        start_layer = -8
+        start_layer = -10
         stop_layer = -1
         diameter = 0.25
         hole_diameter = 0.1
@@ -680,17 +730,20 @@ class HighPerfSubstrate(Substrate):
     # shielded layer fenced. It is not referenced by any default
     # routing structure.
     _ALL_FENCES: dict[int, type[Via]] = {
-        2: uFence_L2_L4,    # L3
-        4: uFence_L4_L6,    # L5
-        6: uFence_L6_L8,    # L7
-        -7: uFence_L9_L11,  # L10 (mirror of L7)
-        -5: uFence_L11_L13, # L12 (mirror of L5)
-        -3: uFence_L13_L15, # L14 (mirror of L3)
+        2: uFence_L2_L4,     # L3
+        4: uFence_L4_L6,     # L5
+        6: uFence_L6_L8,     # L7
+        8: uFence_L8_L10,    # L9
+        -9: uFence_L11_L13,  # L12 (mirror of L9)
+        -7: uFence_L13_L15,  # L14 (mirror of L7)
+        -5: uFence_L15_L17,  # L16 (mirror of L5)
+        -3: uFence_L17_L19,  # L18 (mirror of L3)
     }
 
     # 50 Ω single-ended stripline — DDR5 SE, legacy LPDDR5 DQ.
-    # `symmetric_routing_layers` mirrors {2, 4, 6} → {-3, -5, -7} so the
-    # same trace geometry applies on every shielded layer (3 per side).
+    # `symmetric_routing_layers` mirrors {2, 4, 6, 8} → {-3, -5, -7, -9}
+    # so the same trace geometry applies on every shielded layer
+    # (4 per side, 8 total).
     SE_50 = RoutingStructure(
         name="50 ohm Stripline",
         impedance=50 * ohm,
@@ -699,7 +752,7 @@ class HighPerfSubstrate(Substrate):
                 INNER_SE_50_TRACE_WIDTH,
                 neck_down_trace_width=INNER_SE_50_NECK_DOWN_WIDTH,
             )
-            for i in (2, 4, 6)
+            for i in (2, 4, 6, 8)
         }),
     )
 
@@ -715,7 +768,7 @@ class HighPerfSubstrate(Substrate):
                 neck_down_trace_width=INNER_SE_40_NECK_DOWN_WIDTH,
                 neck_down_clearance=INNER_SE_40_NECK_DOWN_CLEARANCE
             )
-            for i in (2, 4, 6)
+            for i in (2, 4, 6, 8)
         }),
     )
 
@@ -741,7 +794,7 @@ class HighPerfSubstrate(Substrate):
             name="75 ohm Uncoupled (~38 ohm SE)",
             impedance=38 * ohm,
             layers=symmetric_routing_layers({
-                i: _se_layer(INNER_DIFF_75_TRACE_WIDTH) for i in (2, 4, 6)
+                i: _se_layer(INNER_DIFF_75_TRACE_WIDTH) for i in (2, 4, 6, 8)
             }),
         ),
     )
@@ -758,7 +811,7 @@ class HighPerfSubstrate(Substrate):
             name="85 ohm Uncoupled (~42 ohm SE)",
             impedance=42 * ohm,
             layers=symmetric_routing_layers({
-                i: _se_layer(INNER_DIFF_85_TRACE_WIDTH) for i in (2, 4, 6)
+                i: _se_layer(INNER_DIFF_85_TRACE_WIDTH) for i in (2, 4, 6, 8)
             }),
         ),
     )
@@ -776,7 +829,7 @@ class HighPerfSubstrate(Substrate):
             name="100 ohm Uncoupled (~50 ohm SE)",
             impedance=50 * ohm,
             layers=symmetric_routing_layers({
-                i: _se_layer(INNER_DIFF_100_TRACE_WIDTH) for i in (2, 4, 6)
+                i: _se_layer(INNER_DIFF_100_TRACE_WIDTH) for i in (2, 4, 6, 8)
             }),
         ),
     )
@@ -792,7 +845,7 @@ class HighPerfSubstrate(Substrate):
             name="90 ohm Uncoupled (~45 ohm SE)",
             impedance=45 * ohm,
             layers=symmetric_routing_layers({
-                i: _se_layer(INNER_DIFF_90_TRACE_WIDTH) for i in (2, 4, 6)
+                i: _se_layer(INNER_DIFF_90_TRACE_WIDTH) for i in (2, 4, 6, 8)
             }),
         ),
     )
@@ -825,17 +878,19 @@ class HighPerfBoard(Board):
         HighPerfSubstrate.uVia_L1_L3,
         HighPerfSubstrate.uVia_L1_L5,
         HighPerfSubstrate.uVia_L1_L7,
+        HighPerfSubstrate.uVia_L1_L9,
         # Half-stack GND stitching uVias
-        HighPerfSubstrate.uStitch_L1_L8,
-        HighPerfSubstrate.uStitch_L9_L16,
+        HighPerfSubstrate.uStitch_L1_L10,
+        HighPerfSubstrate.uStitch_L11_L20,
         # Mechanical through-hole
         HighPerfSubstrate.TH_Via,
         HighPerfSubstrate.TH_Via_Pwr,
         # Fence uVias (uFence_L2_L4, uFence_L4_L6, uFence_L6_L8,
-        # uFence_L9_L11, uFence_L11_L13, uFence_L13_L15) are
-        # intentionally NOT registered here. LPDDR5 per AMD UG863 does
-        # not require fence vias, and registering unused via types
-        # bloats the board's via inventory. Subclass `HighPerfBoard` and
-        # extend this list if your routing structures opt into
-        # `.fence(...)` (see `_ALL_FENCES` on the substrate).
+        # uFence_L8_L10, uFence_L11_L13, uFence_L13_L15,
+        # uFence_L15_L17, uFence_L17_L19) are intentionally NOT
+        # registered here. LPDDR5 per AMD UG863 does not require fence
+        # vias, and registering unused via types bloats the board's
+        # via inventory. Subclass `HighPerfBoard` and extend this list
+        # if your routing structures opt into `.fence(...)` (see
+        # `_ALL_FENCES` on the substrate).
     ]

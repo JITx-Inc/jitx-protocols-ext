@@ -680,7 +680,6 @@ def drop_vias_on_net_pads(
     from jitx.landpattern import Landpattern
     from jitx.component import Component
     from jitx.inspect import visit
-    from jitx._structural import Item, Proxy
 
     if parent_transform is None:
         parent_transform = Transform.identity()
@@ -690,26 +689,6 @@ def drop_vias_on_net_pads(
         # instance whose pads have generator-set transforms.
         return []
 
-    def _navigate(lp, path):
-        obj = lp
-        for step in path:
-            if isinstance(step, Item):
-                obj = obj[step.value]
-            elif isinstance(step, int):
-                obj = obj[step]
-            else:
-                obj = getattr(obj, step)
-        return obj
-
-    # Build {id(port): net_name} from the user-supplied port lists.
-    port_id_to_net: dict = {}
-    for net_name, ports in net_to_ports.items():
-        for port in ports:
-            port_id_to_net[id(port)] = net_name
-
-    # Find every live Component reachable from the supplied instance.
-    # Both `component_instance` itself (if it's a Component) and any
-    # nested Components inside a wrapping Circuit are candidates.
     component_traces: list = []
     for trace, comp in visit(component_instance, Component):
         component_traces.append((trace, comp))
@@ -719,55 +698,44 @@ def drop_vias_on_net_pads(
 
     placed: list = []
     for comp_trace, comp in component_traces:
-        # The class-level `mapping` attribute holds the deferred
-        # PadMapping(s). Reach through Proxy to the underlying class.
-        cls = Proxy.type(comp)
-        mapping_list = cls.__dict__.get("mapping")
-        if mapping_list is None:
-            continue
-        if not isinstance(mapping_list, (list, tuple)):
-            mapping_list = [mapping_list]
+        # Walk the LIVE PadMapping via `pm.inverse()` so the
+        # `port_id_to_pad` keys match the same pooled proxy IDs that
+        # users get via attribute access on the live component
+        # (`self.mem.VSS[0]`). Class-level Port references (e.g.
+        # `MT62F4G32D8DV_026_AIT_B.VSS[0]`) ALSO resolve to the same
+        # pooled proxy, so both calling styles work — see
+        # `attach_signal_vias_on_pads` for the same approach.
+        port_id_to_pad: dict = {}
+        mapping = comp.mapping
+        if not isinstance(mapping, (list, tuple)):
+            mapping = [mapping]
+        for pm in mapping:
+            for pad, port in pm.inverse().items():
+                port_id_to_pad[id(port)] = pad
 
-        # Walk the deferred PadMapping construction args once. For each
-        # `Instantiable(PadMapping, ({port: pad_attr}, ...), {})`,
-        # extract the {port: pad_attr} dict. The pad_attr is an
-        # :py:class:`InstantiableAttribute` whose ``__attribute`` tuple
-        # encodes the path on the landpattern (e.g. ``("AA", Item(10))``).
-        port_to_path: dict = {}
-        for pm in mapping_list:
-            args = getattr(pm, "_Instantiable__args", None)
-            if not args:
-                continue
-            pm_dict = args[0]
-            if not isinstance(pm_dict, dict):
-                continue
-            for port_inst, pad_attr in pm_dict.items():
-                path = getattr(pad_attr, "_InstantiableAttribute__attribute", None)
-                if path is None:
-                    continue
-                port_to_path[id(port_inst)] = path
-
-        if not port_to_path:
+        if not port_id_to_pad:
             continue
 
-        # Find the landpattern(s) of this Component. visit's accumulated
-        # transform from `component_instance` down to each landpattern's
-        # parent is what we use to position vias relative to
-        # `parent_transform`.
         landpattern_traces: list = []
         for lp_trace, lp in visit(comp, Landpattern):
             landpattern_traces.append((lp_trace, lp))
         if not landpattern_traces:
             continue
 
-        # Component-level trace transform — accumulates from
-        # `component_instance` down to the Component's parent (its
-        # enclosing Circuit). Combined with each landpattern's own
-        # trace inside the Component, we get the full path.
+        # Single landpattern is the typical case; first match wins.
+        lp_trace, lp = landpattern_traces[0]
         comp_trace_xform = (
             comp_trace.transform
             if comp_trace.transform is not None
             else Transform.identity()
+        )
+        lp_trace_xform = (
+            lp_trace.transform
+            if lp_trace.transform is not None
+            else Transform.identity()
+        )
+        lp_xform = (
+            lp.transform if lp.transform is not None else Transform.identity()
         )
 
         for net_name, via_class in net_via_map.items():
@@ -776,41 +744,150 @@ def drop_vias_on_net_pads(
             if net is None:
                 continue
             for port in ports:
-                path = port_to_path.get(id(port))
-                if path is None:
+                pad = port_id_to_pad.get(id(port))
+                if pad is None:
                     continue
-                # Try each landpattern (typically 1) for this path.
-                for lp_trace, lp in landpattern_traces:
-                    try:
-                        pad_obj = _navigate(lp, path)
-                    except (AttributeError, KeyError, IndexError, TypeError):
-                        continue
-                    pad_xform = (
-                        pad_obj.transform
-                        if pad_obj.transform is not None
-                        else Transform.identity()
-                    )
-                    lp_trace_xform = (
-                        lp_trace.transform
-                        if lp_trace.transform is not None
-                        else Transform.identity()
-                    )
-                    lp_xform = (
-                        lp.transform
-                        if lp.transform is not None
-                        else Transform.identity()
-                    )
-                    world_xform = (
-                        parent_transform
-                        * comp_trace_xform
-                        * lp_trace_xform
-                        * lp_xform
-                        * pad_xform
-                    )
-                    via = via_class().at(world_xform)
-                    net += via
-                    placed.append(via)
-                    break
+                pad_xform = (
+                    pad.transform if pad.transform is not None else Transform.identity()
+                )
+                world_xform = (
+                    parent_transform
+                    * comp_trace_xform
+                    * lp_trace_xform
+                    * lp_xform
+                    * pad_xform
+                )
+                via = via_class().at(world_xform)
+                net += via
+                placed.append(via)
+
+    return placed
+
+
+def attach_signal_vias_on_pads(
+    component_instance,
+    port_via_map: dict,
+    *,
+    parent_transform=None,
+) -> list:
+    """Drop a via on each pad of ``component_instance`` whose port is
+    in ``port_via_map`` and tie it to that port via :py:class:`PortAttachment`.
+
+    Mirrors :py:func:`drop_vias_on_net_pads` for the signal-pad case
+    where each port participates in a topology (``>>``) rather than a
+    flat :py:class:`Net`. ``net += via`` cannot be used on a
+    :py:class:`TopologyNet`, so each via is bound via
+    :py:class:`PortAttachment` to the live component-port proxy that
+    sits on the matching pad. The PortAttachment carries the
+    electrical association without altering the topology sequence.
+
+    Args:
+        component_instance: A live :py:class:`Component` (or
+            :py:class:`Circuit` containing one). Pass ``self`` (the
+            wrapper Circuit) when calling from inside an ``__init__``
+            that just instantiated the component, so ``visit`` can
+            descend into it.
+        port_via_map: ``{live_port_proxy: Via_class}``. Keys must be
+            **live proxies** obtained via attribute access on a live
+            component instance (e.g. ``self.mem.DQ_A[0]``), not raw
+            class-level Port references — JITX pools proxies by
+            attribute and the live :py:class:`PadMapping` traversal
+            uses the same pooled identities, so identity matching via
+            ``id()`` only works on live proxies. Entries whose value
+            is ``None`` are skipped.
+        parent_transform: Placement transform of the component on the
+            board. Defaults to identity, matching the
+            ``floating=True`` wrapper case where the via positions are
+            computed in the wrapper's local frame.
+
+    Returns:
+        Flat list of :py:class:`PortAttachment` instances. Caller
+        stores the result on the Circuit so the structural references
+        stay reachable.
+    """
+    from jitx.transform import Transform
+    from jitx.landpattern import Landpattern
+    from jitx.component import Component
+    from jitx.net import PortAttachment
+    from jitx.inspect import visit
+
+    if parent_transform is None:
+        parent_transform = Transform.identity()
+
+    if isinstance(component_instance, type):
+        return []
+
+    # Drop None entries up front; identity matching against the live
+    # PadMapping (built below) keys on `id(port)` and relies on JITX's
+    # proxy pooling so that the same pooled proxy is returned both
+    # here and via attribute access on the live component.
+    if not any(via for via in port_via_map.values()):
+        return []
+
+    component_traces: list = []
+    for trace, comp in visit(component_instance, Component):
+        component_traces.append((trace, comp))
+
+    if not component_traces:
+        return []
+
+    placed: list = []
+    for comp_trace, comp in component_traces:
+        # Use `_build_port_id_to_pad_proxy`-style traversal of the LIVE
+        # PadMapping so the port_id_to_pad keys are the same pooled
+        # proxies as the user-supplied port_via_map keys.
+        port_id_to_pad: dict = {}
+        mapping = comp.mapping
+        if not isinstance(mapping, (list, tuple)):
+            mapping = [mapping]
+        for pm in mapping:
+            for pad, port in pm.inverse().items():
+                port_id_to_pad[id(port)] = pad
+
+        if not port_id_to_pad:
+            continue
+
+        landpattern_traces: list = []
+        for lp_trace, lp in visit(comp, Landpattern):
+            landpattern_traces.append((lp_trace, lp))
+        if not landpattern_traces:
+            continue
+
+        comp_trace_xform = (
+            comp_trace.transform
+            if comp_trace.transform is not None
+            else Transform.identity()
+        )
+        # Single landpattern is the typical case; if there are multiple
+        # the first match wins.
+        lp_trace, lp = landpattern_traces[0]
+        lp_trace_xform = (
+            lp_trace.transform
+            if lp_trace.transform is not None
+            else Transform.identity()
+        )
+        lp_xform = (
+            lp.transform if lp.transform is not None else Transform.identity()
+        )
+
+        for port, via_class in port_via_map.items():
+            if via_class is None:
+                continue
+            pad = port_id_to_pad.get(id(port))
+            if pad is None:
+                continue
+            pad_xform = (
+                pad.transform if pad.transform is not None else Transform.identity()
+            )
+            world_xform = (
+                parent_transform
+                * comp_trace_xform
+                * lp_trace_xform
+                * lp_xform
+                * pad_xform
+            )
+            via = via_class().at(world_xform)
+            placed.append(PortAttachment(port, via))
 
     return placed
 
