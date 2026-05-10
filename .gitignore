@@ -15,8 +15,11 @@ __pycache__/
 3d-models/
 
 # Data Cache - Files that don't need to be version controlled.
-designs/
-
+designs/*
+!designs/examples.protocols.memory.xc2ve3858_lpddr5_example.XC2VE3858LPDDR5ExampleDesign/
+designs/examples.protocols.memory.xc2ve3858_lpddr5_example.XC2VE3858LPDDR5ExampleDesign/*
+!designs/examples.protocols.memory.xc2ve3858_lpddr5_example.XC2VE3858LPDDR5ExampleDesign/design-info/
+designs/examples.protocols.memory.xc2ve3858_lpddr5_example.XC2VE3858LPDDR5ExampleDesign/design-info/*
 !designs/examples.protocols.memory.xc2ve3858_lpddr5_example.XC2VE3858LPDDR5ExampleDesign/design-info/*.design
 !designs/examples.protocols.memory.xc2ve3858_lpddr5_example.XC2VE3858LPDDR5ExampleDesign/design-info/reference-designators.table
 
