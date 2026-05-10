@@ -63,7 +63,7 @@ class XC2VE3858LPDDR5ExampleCircuit(Circuit):
                 HighPerfSubstrate.uVia_L1_L7,  # CAC Channel A
                 HighPerfSubstrate.uVia_L1_L9,  # CAC Channel B
             ],
-            reset_via=HighPerfSubstrate.uVia_L1_L9,
+            reset_via=HighPerfSubstrate.uVia_L1_L7,
         )
         self.fpga.at(floating=True)
         self.memory.at(floating=True)

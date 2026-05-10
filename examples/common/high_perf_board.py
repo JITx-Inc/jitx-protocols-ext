@@ -484,6 +484,25 @@ def _se_layer(
     )
 
 
+def _l1_uvia_models(
+    stop_layer: int,
+) -> dict[tuple[int, int], PinModel]:
+    """Build pin-models for an L1-anchored microvia.
+
+    For a microvia from L1 (index 0) to ``stop_layer``, generate a model for
+    every (L1, signal_layer) pair the via spans — so the SI solver can use
+    the via for any signal layer it physically reaches, not only the deepest
+    one. Signal layers in :py:class:`HighPerfStackup` are even-indexed
+    (L1=0, L3=2, L5=4, L7=6, L9=8). Delay/loss scale linearly with depth:
+    ``delay = (1 + k) ps``, ``loss = 0.01·k dB`` where ``k`` is the
+    destination layer index.
+    """
+    return {
+        (0, k): PinModel(delay=(1 + k) * 1e-12, loss=0.01 * k)
+        for k in range(2, stop_layer + 1, 2)
+    }
+
+
 # ---------------------------------------------------------------------------
 # Substrate
 # ---------------------------------------------------------------------------
@@ -529,7 +548,7 @@ class HighPerfSubstrate(Substrate):
         hole_diameter = 0.1
         filled = True
         via_in_pad = True
-        models = {(0, 2): PinModel(3e-12, 0.02)}
+        models = _l1_uvia_models(2)
 
     class uVia_L1_L5(Via):
         """BGA-escape laser uVia from L1 (top) → L5 (shielded #2).
@@ -542,7 +561,7 @@ class HighPerfSubstrate(Substrate):
         hole_diameter = 0.1
         filled = True
         via_in_pad = True
-        models = {(0, 4): PinModel(5e-12, 0.04)}
+        models = _l1_uvia_models(4)
 
     class uVia_L1_L7(Via):
         """BGA-escape laser uVia from L1 (top) → L7 (shielded #3).
@@ -555,7 +574,7 @@ class HighPerfSubstrate(Substrate):
         hole_diameter = 0.1
         filled = True
         via_in_pad = True
-        models = {(0, 6): PinModel(7e-12, 0.06)}
+        models = _l1_uvia_models(6)
 
     class uVia_L1_L9(Via):
         """BGA-escape laser uVia from L1 (top) → L9 (shielded #4).
@@ -568,7 +587,7 @@ class HighPerfSubstrate(Substrate):
         hole_diameter = 0.1
         filled = True
         via_in_pad = True
-        models = {(0, 8): PinModel(9e-12, 0.08)}
+        models = _l1_uvia_models(8)
 
     # Fence uVias — one per shielded signal layer, spanning the GND
     # planes immediately above and below it. Used by the diff-pair
