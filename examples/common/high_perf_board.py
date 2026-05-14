@@ -146,6 +146,8 @@ class HighPerfCopper(Conductor):
 # Phase velocity used by all stripline layer entries (Dk 3.0).
 _VEL_STRIPLINE = phase_velocity(_DIELECTRIC_COEFFICIENT)
 
+# Signal delay per layer pair
+VIA_DELAY_PER_LAYER = 1.0e-12
 
 # ---------------------------------------------------------------------------
 # Stackup
@@ -498,7 +500,7 @@ def _l1_uvia_models(
     destination layer index.
     """
     return {
-        (0, k): PinModel(delay=(1 + k) * 1e-12, loss=0.01 * k)
+        (0, k): PinModel(delay=(1 + k) * VIA_DELAY_PER_LAYER, loss=0.01 * k)
         for k in range(2, stop_layer + 1, 2)
     }
 
